@@ -3,16 +3,15 @@
 .~*#
 *_doc/
 *.zip
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 
 # removes files
-# FGFP_metadata.tsv
-# FGFP_metadata_ready.tsv
 temp-plot.html
-
+project_specific/
 # C extensions
 *.so
 

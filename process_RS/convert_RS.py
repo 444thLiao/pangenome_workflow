@@ -2,7 +2,7 @@ import re
 
 import pandas as pd
 from collections import defaultdict
-standard_data = pd.read_csv("/home/liaoth/data2/project/shenzhen_actineto/RS_judge/resistant_standard.tab", sep='\t', header=None)
+standard_data = pd.read_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/RS_judge/resistant_standard.tab", sep='\t', header=None)
 standard = standard_data.iloc[3:, 6:-2]
 standard.columns = ['name1',
                     'name2',
@@ -18,22 +18,21 @@ standard.columns = ['name1',
 
 def generate_fun(val):
     if '≥' in val:
-        val = float(val.strip('≥')[-1])
-        return lambda x: x >= val
+        val = float(val.split('≥')[-1])
+        return (lambda x: x >= val, val)
     elif '≤' in val:
         val = float(val.split("≤")[-1])
-        return lambda x: x <= val
+        return (lambda x: x <= val, val)
     elif '-' in val:
         _min, _max = sorted(map(float, val.split('-')))
         if _min == _max:
-            return lambda x: x == _min
+            return (lambda x: x == _min, _min)
         else:
-            return lambda x: x > _min and x < _max
+            return (lambda x: x >= _min and x <= _max, (_min,_max))
     elif re.match('^[0-9]+$', val):
-        return lambda x: x == float(val)
+        return (lambda x: x == float(val), val)
     else:
-        import pdb;
-        pdb.set_trace()
+        import pdb;pdb.set_trace()
         raise Exception
 
 
@@ -46,7 +45,6 @@ def process_SR(col):
             if '/' in val:
                 get_num = re.findall("[0-9]+", val)
                 if '-' in val:
-
                     finalvals = ["%s-%s" % (get_num[0], get_num[2]),
                                  "%s-%s" % (get_num[1], get_num[3])]
 
@@ -74,7 +72,7 @@ for idx, row in standard.iterrows():
 
     ############################################################
 
-ori_data = pd.read_csv("/home/liaoth/data2/project/shenzhen_actineto/RS_judge/total_actineto.csv", sep='\t', index_col=1)
+ori_data = pd.read_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/RS_judge/total_actineto.csv", sep='\t', index_col=1)
 
 ori_data = ori_data.loc[~ori_data.index.isnull(), :]
 ori_data = ori_data.loc[~ori_data.index.duplicated(keep=False), :]
@@ -109,9 +107,11 @@ for idx,val in med_data.iteritems():
     for nid,v in enumerate(new_val):
 
         for rs in j_funcs.keys():
-            j_func = j_funcs[rs]
+            j_func = j_funcs[rs][0]
             if type(j_func) == list:
                 continue
+            if type(j_func) == tuple:
+                j_func = j_func[0]
             if j_func(v):
                 status[nid] = rs.replace('.1','')
     med_data.loc[:,"RES_%s" % idx] = status
@@ -148,7 +148,7 @@ for k,v in merged_col.items():
         med_data.loc[:,k] = new_v
 
 med_data = med_data.drop(dropped_iterms,axis=1)
-med_data.to_csv("/home/liaoth/data2/project/shenzhen_actineto/RS_judge/RS.csv",sep=',')
+med_data.to_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/RS_judge/RS.csv",sep=',')
 
 
 
