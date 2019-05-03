@@ -3,6 +3,8 @@ import os, re
 from subprocess import check_call, check_output
 from collections import defaultdict
 from tqdm import tqdm
+import pandas as pd
+from utils import get_length_fasta
 
 indir = "/home/liaoth/project/shenzhen_actineto/shovill_output"
 
@@ -27,15 +29,10 @@ for contig in tqdm(glob(os.path.join(indir, 'regular', '*', 'contigs.fa'))):
         result_dict[sample_name] = plasmid_count_dict
 
 from toolkit.get_gene_info import get_gene_with_regin
+from utils import get_locus2group
+
 roary_dir = '/home/liaoth/project/shenzhen_actineto/roary_o'
-protein_cluster_info = os.path.join(roary_dir,'clustered_proteins')
-locus2group = dict()
-for row in open(protein_cluster_info).readlines():
-    row = row.strip('\n')
-    cluster_group = row.split(': ')[0]
-    remained_locus = row.split(": ")[1]
-    for locus in remained_locus.split('\t'):
-        locus2group[locus] = cluster_group
+locus2group = get_locus2group(roary_dir)
 
 plasmids_genes = defaultdict(dict)
 for k, vdict in result_dict.items():
@@ -44,8 +41,31 @@ for k, vdict in result_dict.items():
     all_genes = get_gene_with_regin(gff_p.format(sn=k),
                                     all_plasmid_r)
     for g in all_genes:
-        g = locus2group.get(g,'removed')
+        g = locus2group.get(g, 'removed')
         if g != 'removed':
             plasmids_genes[k][g] = 1
+############################################################
+# summary all require info
+summary_df = pd.DataFrame(
+    columns=['total contigs', 'total CDS', 'total length', 'contigs belong to plasmid', 'CDS belong to plasmid', 'total length of plasmids', 'ratio of plasmid'])
+for sample_name in plasmids_genes.keys():
+    contig_pth = os.path.join(indir, 'regular', sample_name, 'contigs.fa')
+    num_contigs = int(check_output("grep -c '^>' %s " % contig_pth, shell=True))
+    length_contigs = sum(get_length_fasta(contig_pth).values())
+    gff_pth = "/home/liaoth/project/shenzhen_actineto/prokka_o/{sn}/{sn}.gff".format(sn=sample_name)
+    num_CDS = int(check_output("grep -c 'CDS' %s " % gff_pth, shell=True))
 
-
+    plasmidcontig_pth = os.path.join(indir, 'plasmidsSpades', sample_name, 'contigs.fa')
+    num_contigs4plasmid = sum([len(_) for _ in result_dict[sample_name].values()])
+    length_plasmidscontigs = sum(get_length_fasta(plasmidcontig_pth).values())
+    _sub_df = pd.DataFrame(columns=summary_df.columns,
+                           index=[sample_name],
+                           data=[[num_contigs,
+                                  num_CDS,
+                                  length_contigs,
+                                  num_contigs4plasmid,
+                                  len(plasmids_genes[sample_name]),
+                                  length_plasmidscontigs,
+                                  length_plasmidscontigs / length_contigs
+                                  ]])
+    summary_df = summary_df.append(_sub_df)

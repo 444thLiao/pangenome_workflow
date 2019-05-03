@@ -1,74 +1,76 @@
 import os
 
 import pandas as pd
-from sklearn.decomposition import PCA
+from skbio.stats.ordination import pcoa
+import sys
+sys.path.insert(0,os.path.dirname(os.path.dirname(__file__)))
+from toolkit.utils import get_distance
 import re
 
-data = pd.read_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/roary_o/gene_presence_absence.csv",
-                   sep=',',
-                   index_col=0, low_memory=False)
-
-data = data.iloc[:, 13:]
-# data = data.apply(lambda x: [data.index[idx] if not pd.isna(v) else 0 for idx,v in enumerate(x)],axis=0)
-data = data.apply(lambda x: [1 if not pd.isna(v) else 0 for idx, v in enumerate(x)], axis=0)
-data = data.T
 
 ############################################################
 pandoo_o_dir = "/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/pandoo_result"
 merged_df_path = os.path.join(pandoo_o_dir, 'For phandango.csv')
 metadata = pd.read_csv(merged_df_path, index_col=0, low_memory=False)
-metadata = metadata.reindex(data.index)
 ############################################################
 import plotly
 import plotly.graph_objs as go
 import plotly.io as pio
 
 
-def draw_PCA(data, col=None):
-    pca = PCA()
-    pca_r = pca.fit_transform(data)
+def draw_PCoA(dist, col=None):
+    pcoa_result = pcoa(dist)
+    ord_data = pcoa_result.samples
+    ord_data.index = dist.index
     fig = go.Figure()
     if col is not None:
+        col = col.reindex(dist.index)
+        col = col.fillna('unknown')
         for val in set(col):
-            fig.add_scatter(x=pca_r[col == val, 0],
-                            y=pca_r[col == val, 1],
-                            text=data.index[col == val],
+            fig.add_scatter(x=ord_data.loc[col == val, "PC1"],
+                            y=ord_data.loc[col == val, "PC2"],
+                            text=ord_data.index[col == val],
                             marker=dict(size=20, opacity=0.6),
                             name=val,
                             mode="markers", )
     else:
-        fig.add_scatter(x=pca_r[:, 0],
-                        y=pca_r[:, 1],
-                        text=data.index,
-                        marker=dict(size=20, opacity=0.7),
+        fig.add_scatter(x=ord_data.loc[:, "PC1"],
+                        y=ord_data.loc[:, "PC2"],
+                        text=ord_data.index,
+                        marker=dict(size=20, opacity=0.6),
                         mode="markers", )
     fig.layout.hovermode = "closest"
-    fig.layout.xaxis.title = "PC1({:.2f}%)".format(pca.explained_variance_ratio_[0] * 100)
-    fig.layout.yaxis.title = "PC2({:.2f}%)".format(pca.explained_variance_ratio_[1] * 100)
+    fig.layout.xaxis.title = "NMDS1({:.2f}%)".format(pcoa_result.proportion_explained[0] * 100)
+    fig.layout.yaxis.title = "NMDS2({:.2f}%)".format(pcoa_result.proportion_explained[1] * 100)
     fig.layout.font.size = 15
     return fig
 
 
-def extract_samples(data, metadata):
-    subdata = data.loc[map(lambda x: bool(re.findall('^[0-9]*$', x)), data.index), :]
+def extract_samples(data, metadata,sample_names):
+    subdata = data.loc[sample_names, :]
+    # special pattern for only numerical samples
     subdata = subdata.loc[:, data.sum(0) != 0]
     submetadata = metadata.reindex(subdata.index)
     return subdata, submetadata
 
 
-def iter_output_PCA(data, metadata, odir, label):
+def iter_output_PCoA(data, metadata, odir, label):
     os.makedirs(os.path.join(odir, label), exist_ok=True)
     for fea in ["Sp_krkn_FinalCall", 'source', '科室', 'year', 'Oxf_ST.1'] + list([_ for _ in metadata.columns if _.startswith('RES_')]):
-        fig = draw_PCA(data, metadata.loc[:, fea])
+        fig = draw_PCoA(data, metadata.loc[:, fea])
         pio.write_image(fig, file=os.path.join(odir, label, "%s.png" % fea))
+        plotly.offline.plot(fig, filename=os.path.join(odir, label, "%s.html" % fea),auto_open=False)
 
+odir = "/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/pcoa"
 
-odir = "/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/pca"
-
-iter_output_PCA(data, metadata, odir, label='all_samples_based_all_genes')
+dist = get_distance("/home/liaoth/data2/project/shenzhen_Acinetobacter/64_roary_o/core_gene.newick")
+iter_output_PCoA(dist, metadata, odir, label='all_samples_based_SNP')
 ############################################################
-subdata, submetadata = extract_samples(data, metadata)
-iter_output_PCA(subdata, submetadata, odir, label='21_samples_based_all_genes')
+dist = get_distance("/home/liaoth/data2/project/shenzhen_Acinetobacter/21_roary_o/core_gene.newick")
+iter_output_PCoA(dist, metadata, odir, label='21_samples_based_SNP')
+dist = get_distance("/home/liaoth/data2/project/shenzhen_Acinetobacter/20_roary_o/core_gene.newick")
+iter_output_PCoA(dist, metadata, odir, label='20_samples_based_SNP')
+
 ############################################################
 # input other data
 from vis.heatmap import process_df, total_df, vf_genes, res_genes

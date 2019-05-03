@@ -238,6 +238,7 @@ if __name__ == '__main__':
             # os.makedirs(regular_odir, exist_ok=True)
             # os.makedirs(plasmids_odir, exist_ok=True)
             cmd1 = get_shovill_cmd(r1, r2, plasmids_odir, 100, 30, " '--plasmid' ", "--nocorr")
+            # todo: avoid post assembly correction; after anlysis need to check the regular expression changed with this todo or not.
             cmd2 = get_shovill_cmd(r1, r2, regular_odir, 100, 30, "", "--minlen 500")
 
             run_cmd(cmd1, dryrun=dryrun)

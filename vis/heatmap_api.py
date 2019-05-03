@@ -4,7 +4,7 @@ import plotly.graph_objs as go
 
 
 def create_heatmap(left_dist, main_matrix, up_dist=None, accessory_matrix=None, height=1500, width=None,
-                   main_matrix_text=None,accessory_matrix_text=None):
+                   main_matrix_text=None,accessory_matrix_text=None,return_matrix=False):
     fig = plotly.tools.make_subplots(2, 3,
                                      specs=[[None, None, {}],
                                             [{}, {}, {}]],
@@ -110,7 +110,13 @@ def create_heatmap(left_dist, main_matrix, up_dist=None, accessory_matrix=None, 
     fig.layout.xaxis3.showspikes = False
     fig.layout.xaxis2.showspikes = False
     fig.layout.yaxis1.showticklabels = False
-    return fig
+    if return_matrix:
+        if main_matrix_text is not None or accessory_matrix_text is not None:
+            return fig,main_matrix_text,accessory_matrix_text
+        else:
+            return fig,sub_df,_sub_df
+    else:
+        return fig
 
 
 def main(idir, odir):

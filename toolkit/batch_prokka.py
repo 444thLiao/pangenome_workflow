@@ -6,7 +6,7 @@ import os
 def main(idir,odir):
     for seq in tqdm(glob(os.path.join(idir,'*.f*'))):
         sample_name = os.path.basename(seq).split('.')[0]
-        cmd = "prokka {infile} --outdir {odir} --prefix {sn} --force --quiet --usegenus --genus Acinetobacter"
+        cmd = "prokka {infile} --outdir {odir} --prefix {sn} --force --quiet"
 
         check_call(cmd.format(infile=seq,
                               odir=odir,
