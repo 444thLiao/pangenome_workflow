@@ -1,5 +1,5 @@
 from subprocess import check_call
-from Bio import SeqIO
+from Bio import SeqIO,Phylo
 import os
 from ete3 import Tree
 from collections import defaultdict
@@ -32,15 +32,15 @@ def get_locus2group(roary_dir):
             locus2group[locus] = cluster_group
     return locus2group
 
-def get_distance(tree_pth):
-    t = Tree(open(tree_pth).read())
-
-    pairwise_matrix = defaultdict(dict)
-    all_leaves = t.get_leaf_names()
-    for t1, t2 in itertools.combinations(all_leaves, 2):
-        n1,n2 = t.get_leaves_by_name(t1)[0],t.get_leaves_by_name(t2)[0]
-        pairwise_matrix[t1][t2] =pairwise_matrix[t2][t1] = n1.get_distance(n2)
-    dist = pd.DataFrame.from_dict(pairwise_matrix)
-    dist = pd.DataFrame(dist, index=dist.index, columns=dist.index)
-    dist = dist.fillna(0)
-    return dist
+def get_tree(tree_pth,rooted=False):
+    t = Phylo.read(tree_pth, 'newick')
+    if rooted is False:
+        return t
+    elif rooted == 'midpoint':
+        t.root_at_midpoint()
+        return t
+    elif rooted in [_.name for _ in t.get_terminals()]:
+        rooted_node = [_ for _ in t.get_terminals() if _.name == rooted]
+        t.root_with_outgroup(rooted_node[0])
+        return t
+    return t

@@ -4,7 +4,7 @@ import os
 import re
 import sys
 from collections import defaultdict
-from toolkit.utils import get_distance
+from vis.draw_dendrogram import main as c_dendrogram
 import pandas as pd
 from ete3 import Tree
 from sklearn.preprocessing import LabelEncoder
@@ -106,15 +106,14 @@ def process_df(total_df, target_gens, filter_sample=True, map_type='normal'):
     return sub_df, sub_df_text
 
 
-def main(total_df, target_gens, filter_sample=True, tree_p=None, accessory_cols=None, map_type="normal", up_cluster=None, **kwargs):
+def main(total_df, target_gens, filter_sample=True, tree_p=None, accessory_cols=None, map_type="normal", up_cluster=None, rooted='midpoint', **kwargs):
     main_matrix, main_matrix_text = process_df(total_df, target_gens, filter_sample, map_type=map_type)
 
     s_df = main_matrix.T
     if up_cluster is not None:
         up_dist = pd.DataFrame(squareform(pdist(s_df.values)), index=s_df.index, columns=s_df.index)
     if tree_p is not None:
-        left_dist = get_distance(tree_p)
-
+        left_dist = c_dendrogram(tree_p, rooted=rooted)
     else:
         left_dist = pd.DataFrame(squareform(pdist(main_matrix.values)), index=main_matrix.index, columns=main_matrix.index)
     if accessory_cols is not None:
@@ -164,15 +163,25 @@ if __name__ == '__main__':
                  'AB7', 'AB8', 'AB9', 'XH860']
 
     for samples in [samples20, samples21, samples64]:
+        if len(samples) == 64:
+            tree_p = "/home/liaoth/data2/project/shenzhen_Acinetobacter/%s_roary_o/core_gene.newick" % len(samples)
+            rooted = 'midpoint'
+        elif len(samples) == 21:
+            tree_p = "/home/liaoth/data2/project/shenzhen_Acinetobacter/21_outgroup_roary_o/core_gene.newick"
+            rooted = 'AB030'
+        elif len(samples) == 20:
+            tree_p = "/home/liaoth/data2/project/shenzhen_Acinetobacter/20_outgroup_roary_o/core_gene.newick"
+            rooted = 'AB030'
         vf_fig, mmatrix, amatrix = main(total_df,
                                         vf_genes,
                                         filter_sample=samples,
-                                        tree_p="/home/liaoth/data2/project/shenzhen_Acinetobacter/%s_roary_o/core_gene.newick" % len(samples),
+                                        tree_p=tree_p,
                                         accessory_cols=params.vf_cols,
                                         map_type=lambda x: params.vf2fun.get(x, "unknown"),
+                                        rooted=rooted,
                                         up_cluster=True,
                                         width=2000, height=1000)
-        mmatrix.to_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/pandoo_result/%s_VF_based_SNP.csv" % len(samples),index=True)
+        mmatrix.to_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/pandoo_result/%s_VF_based_SNP.csv" % len(samples), index=True)
 
         plotly.offline.plot(vf_fig,
                             filename="/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/pandoo_result/%s_VF_based_SNP.html" % len(samples),
@@ -181,12 +190,13 @@ if __name__ == '__main__':
         res_fig, mmatrix, amatrix = main(total_df,
                                          res_genes,
                                          filter_sample=samples,
-                                         tree_p="/home/liaoth/data2/project/shenzhen_Acinetobacter/%s_roary_o/core_gene.newick" % len(samples),
+                                         tree_p=tree_p,
                                          accessory_cols=params.res_cols,
                                          map_type=lambda x: params.res2fun.get(x, "unknown"),
+                                         rooted=rooted,
                                          up_cluster=True,
                                          width=2000, height=1000)
-        mmatrix.to_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/pandoo_result/%s_RES_based_SNP.csv" % len(samples),index=True)
+        mmatrix.to_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/pandoo_result/%s_RES_based_SNP.csv" % len(samples), index=True)
         plotly.offline.plot(res_fig,
                             filename="/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/pandoo_result/%s_RES_based_SNP.html" % len(samples),
                             auto_open=False)
@@ -199,16 +209,22 @@ if __name__ == '__main__':
     KL_df = KL_df.iloc[:, 13:].T
     merged_df = pd.concat([KL_df, total_df.loc[:, params.vf_cols]], axis=1)
     for samples in [samples20, samples21]:
-        fig,mmatrix,amatrix = main(merged_df,
-                   KL_df.columns,
-                   filter_sample=samples,
-                   tree_p="/home/liaoth/data2/project/shenzhen_Acinetobacter/%s_roary_o/core_gene.newick" % len(samples),
-                   accessory_cols=params.vf_cols,
-                   width=2000, height=1000)
+        if len(samples) == 20:
+            tree_p = "/home/liaoth/data2/project/shenzhen_Acinetobacter/20_outgroup_roary_o/core_gene.newick"
+            rooted = 'AB030'
+        else:
+            tree_p = "/home/liaoth/data2/project/shenzhen_Acinetobacter/21_outgroup_roary_o/core_gene.newick"
+            rooted = 'midpoint'
+        fig, mmatrix, amatrix = main(merged_df,
+                                     KL_df.columns,
+                                     filter_sample=samples,
+                                     tree_p=tree_p,
+                                     rooted='midpoint' if len(samples) == 21 else 'AB030',
+                                     accessory_cols=params.vf_cols,
+                                     width=2000, height=1000)
         mmatrix.to_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/KL_extracted_reads/%s_heatmap_with_metadata.csv" % len(samples), index=True)
         plotly.offline.plot(fig, filename="/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/KL_extracted_reads/%s_heatmap_with_metadata.html" % len(samples),
                             auto_open=False)
-
 
     KL_df = pd.read_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/KL_extracted_reads/fkpA_1-lldP_region/roary_o/gene_presence_absence.csv",
                         sep=',', index_col=0)
@@ -220,7 +236,6 @@ if __name__ == '__main__':
                                  # tree_p="/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/KL_extracted_reads/fkpA_1-lldP_region/roary_o/core_gene.newick",
                                  accessory_cols=params.vf_cols,
                                  width=2000, height=1000)
-    mmatrix.to_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/KL_extracted_reads/21_heatmap_with_metadata_KLsnp.csv" , index=True)
+    mmatrix.to_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/KL_extracted_reads/21_heatmap_with_metadata_KLsnp.csv", index=True)
     plotly.offline.plot(fig, filename="/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/KL_extracted_reads/21_heatmap_with_metadata_KLsnp.html",
                         auto_open=False)
-

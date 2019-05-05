@@ -27,7 +27,10 @@ def create_heatmap(left_dist, main_matrix, up_dist=None, accessory_matrix=None, 
             i.showlegend = False
             fig.append_trace(i, 1, 3)
     # Create left Side Dendrogram
-    side_dendro = ff.create_dendrogram(left_dist.values,
+    if type(left_dist) == go.Figure:
+        side_dendro = left_dist
+    else:
+        side_dendro = ff.create_dendrogram(left_dist.values,
                                        orientation='right',
                                        labels=left_dist.index)
     for i in side_dendro.data:
