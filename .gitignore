@@ -11,7 +11,6 @@ __pycache__/
 
 # removes files
 temp-plot.html
-project_specific/
 # C extensions
 *.so
 
