@@ -100,7 +100,7 @@ def create_heatmap(left_dist, main_matrix, up_dist=None, accessory_matrix=None, 
     # fig.layout.margin.b = 250
     fig.layout.width = main_matrix.shape[1] * 13 if width is None else width
     fig.layout.height = height
-
+    fig.layout.hovermode = 'closest'
     fig.layout.xaxis1.zeroline = fig.layout.xaxis2.zeroline = fig.layout.xaxis3.zeroline = False
     fig.layout.yaxis1.zeroline = fig.layout.yaxis2.zeroline = False
     fig.layout.xaxis1.showgrid = False
@@ -109,9 +109,11 @@ def create_heatmap(left_dist, main_matrix, up_dist=None, accessory_matrix=None, 
     fig.layout.yaxis1.showgrid = False
     fig.layout.xaxis1.showticklabels = False
     fig.layout.xaxis3.showticklabels = False
-    fig.layout.xaxis1.showspikes = False
-    fig.layout.xaxis3.showspikes = False
-    fig.layout.xaxis2.showspikes = False
+
+    fig.layout.xaxis1.visible = False
+    fig.layout.xaxis3.visible = False
+    fig.layout.xaxis2.visible = False
+
     fig.layout.yaxis1.showticklabels = False
     if return_matrix:
         if main_matrix_text is not None or accessory_matrix_text is not None:

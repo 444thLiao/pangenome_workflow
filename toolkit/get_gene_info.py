@@ -14,12 +14,11 @@ def clean_db(tab,prokka_dir):
         os.remove(dbfn)
 
 def get_gff(gff_fn):
-
-    dbfn = os.path.join(tmp_dir, os.path.basename(gff_fn).split('.')[0])
+    dbfn = os.path.join(tmp_dir, os.path.basename(gff_fn).rsplit('.',1)[0])
     if os.path.isfile(dbfn):
         fn = gffutils.FeatureDB(dbfn, keep_order=True)
     else:
-        fn = gffutils.create_db(gff_fn, dbfn=dbfn)
+        fn = gffutils.create_db(gff_fn, dbfn=dbfn,merge_strategy='merge')
     return fn
 
 def get_gene_with_regin(gff_fn,regions):

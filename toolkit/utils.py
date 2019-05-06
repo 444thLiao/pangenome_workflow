@@ -1,10 +1,7 @@
-from subprocess import check_call
-from Bio import SeqIO,Phylo
 import os
-from ete3 import Tree
-from collections import defaultdict
-import itertools
-import pandas as pd
+from subprocess import check_call
+
+from Bio import SeqIO, Phylo
 
 
 def run_cmd(cmd, dryrun=False, **kwargs):
@@ -32,7 +29,21 @@ def get_locus2group(roary_dir):
             locus2group[locus] = cluster_group
     return locus2group
 
-def get_tree(tree_pth,rooted=False):
+
+def get_fasta_by_ID(roary_dir, seqid, output_fasta=None):
+    # mainly for fetch reference sequence of group
+    fa = SeqIO.parse(os.path.join(roary_dir, 'pan_genome_reference.fa'), format='fasta')
+    results = []
+    for record in fa:
+        if record.description.endswith(seqid):
+            results.append(record)
+    if output_fasta is not None:
+        SeqIO.write(results, open(output_fasta, 'w'), format='fasta')
+    else:
+        return results
+
+
+def get_tree(tree_pth, rooted=False):
     t = Phylo.read(tree_pth, 'newick')
     if rooted is False:
         return t

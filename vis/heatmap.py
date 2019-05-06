@@ -1,75 +1,52 @@
 # -*- coding: UTF-8 -*-
-import itertools
-import os
-import re
-import sys
-from collections import defaultdict
+
 from vis.draw_dendrogram import main as c_dendrogram
 import pandas as pd
-from ete3 import Tree
 from sklearn.preprocessing import LabelEncoder
 ############################################################
 import plotly
 from project_specific import params
 import numpy as np
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+pandoo_df = pd.read_csv('/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/pandoo_result/For phandango.csv',
+                        sep=',',index_col=0)
 ############################################################
-pandoo_o_dir = "/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/pandoo_result"
-merged_df_path = os.path.join(pandoo_o_dir, 'For phandango.csv')
-total_df = pd.read_csv(merged_df_path, index_col=0)
+abricate_data_path = "/home/liaoth/data2/project/shenzhen_Acinetobacter/21_outgroup_roary_o/abricate_result.tab"
+total_df = pd.read_csv(abricate_data_path, sep='\t',index_col=0)
+total_df = total_df.fillna(0)
 
-res_name_convert = pd.read_csv('/home/liaoth/data2/project/shenzhen_Acinetobacter/gene_name_convert.csv', index_col=0)
-res_name_convert = res_name_convert.to_dict()['0']
+res_db = ["card","ncbi","resinder","argannot"]
+vf_db = ["vfdb_full","vfdb","victors"]
+res_df = total_df.loc[total_df.index[:-1],total_df.loc['db',:].isin(res_db)].astype(float).astype(int)
+vf_df = total_df.loc[total_df.index[:-1],total_df.loc['db',:].isin(vf_db)].astype(float).astype(int)
 
-cols = [_ for _ in total_df.columns if _.startswith('abricate')]
-
-all_gene = {}
-for col in cols:
-    for db in ['argannot', 'card', 'ncbi', 'resfinder', 'vfdb', 'vfdb_full', 'victors']:
-        if db in col:
-            tmp = col.split(db + '_')[1]
-            tmp = tmp.split('.')[0]
-            if 'full' in tmp:
-                tmp = tmp.split('full_')[-1]
-            if 'resfinder' == db:
-                tmp = re.split('_[0-9]', tmp)[0]
-            if tmp.startswith('('):
-                tmp = tmp.split(')')[1]
-            if tmp.startswith('bla'):
-                tmp = tmp.split('bla')[1]
-            if col.endswith(tmp):
-                all_gene[tmp.lower()] = col
-
-drop_duplicated = ['abricate_ncbi_mph(E)',
-                   'abricate_ncbi_msr(E)',
-                   'abricate_ncbi_aac(3)-I',
-                   'abricate_argannot_(Sul)SulI',
-                   'abricate_argannot_(Sul)SulII',
-                   'abricate_argannot_(Tet)Tet-39',
-                   'abricate_argannot_(Tet)TetB',
-                   'abricate_argannot_(AGly)Aac3-I',
-                   "abricate_argannot_(AGly)Aph3''Ia"]
-
-single_gene_cols = [_ for _ in all_gene.values() if _ not in drop_duplicated]
-print("original remove name redundant, left:", len(single_gene_cols))
-res_db = "_card|ncbi|resinder|argannot_"
-vf_db = "_vfdb_full|vfdb|victors_"
-for i in [_ for _ in single_gene_cols if re.search(vf_db, _)]:
-    tmp = '_'.join(i.split('_')[2:])
-    if tmp.startswith('full_'):
-        tmp = tmp.split('full_')[1]
-    res_name_convert[i] = tmp
-
-res_genes = [res_name_convert.get(_, _) for _ in single_gene_cols if re.search(res_db, _)]
-vf_genes = [res_name_convert.get(_, _) for _ in single_gene_cols if re.search(vf_db, _)]
-print("original remove name redundant, left:", len(res_genes), len(vf_genes))
-total_df.columns = [res_name_convert.get(_, _) for _ in total_df.columns]
-# remove gene which all samples contain this gene & gene which all samples doesn't have this gene.
-res_genes = [_ for _ in res_genes if pd.isnull(total_df.loc[:, _]).any() and not pd.isnull(total_df.loc[:, _]).all()]
-vf_genes = [_ for _ in vf_genes if pd.isnull(total_df.loc[:, _]).any() and not pd.isnull(total_df.loc[:, _]).all()]
-print("original remove all have/none, left:", len(res_genes), len(vf_genes))
+res_genes = list(res_df.columns)
+vf_genes = list(vf_df.columns)
+total_df = pd.concat([res_df,vf_df,pandoo_df],axis=1)
+# drop_duplicated = ['abricate_ncbi_mph(E)',
+#                    'abricate_ncbi_msr(E)',
+#                    'abricate_ncbi_aac(3)-I',
+#                    'abricate_argannot_(Sul)SulI',
+#                    'abricate_argannot_(Sul)SulII',
+#                    'abricate_argannot_(Tet)Tet-39',
+#                    'abricate_argannot_(Tet)TetB',
+#                    'abricate_argannot_(AGly)Aac3-I',
+#                    "abricate_argannot_(AGly)Aph3''Ia"]
+#
+# unique_genes = list(set([_ for v in all_gene.values() for _ in v]))
+#
+#
+# print("original remove name redundant, left:", len(unique_genes))
+#
+# res_genes = list(set([_ for _ in unique_genes if  _ in res_genes]))
+# vf_genes = list(set([_ for _ in unique_genes if _ in vf_genes]))
+# print("original remove name redundant, left:", len(res_genes), len(vf_genes))
+#
+# # remove gene which all samples contain this gene & gene which all samples doesn't have this gene.
+# res_genes = [_ for _ in res_genes if pd.isnull(interested_df.loc[:, _]).any() and not pd.isnull(interested_df.loc[:, _]).all()]
+# vf_genes = [_ for _ in vf_genes if pd.isnull(interested_df.loc[:, _]).any() and not pd.isnull(interested_df.loc[:, _]).all()]
+# print("original remove all have/none, left:", len(res_genes), len(vf_genes))
 ############################################################
 # target_gens = vf_genes
 # eu distance and clustering
@@ -82,21 +59,18 @@ def process_df(total_df, target_gens, filter_sample=True, map_type='normal'):
 
     if type(filter_sample) == list:
         sub_df = sub_df.loc[filter_sample, :]
-        sub_df = sub_df.loc[:, (pd.isna(sub_df).any(0)) & (~pd.isna(sub_df).all(0))]
-
-    elif type(filter_sample) == bool and filter_sample:
-        sub_df = sub_df.loc[map(lambda x: bool(re.findall('^[0-9]*$', x)), sub_df.index), :]
-        sub_df = sub_df.loc[:, (pd.isna(sub_df).any(0)) & (~pd.isna(sub_df).all(0))]
-
+        # sub_df = sub_df.loc[:, (sub_df.sum(0)!=sub_df.shape[0]) & (sub_df.sum(0)!=0)]
+        sub_df = sub_df.loc[:,  (sub_df.sum(0) != 0)]
     if map_type == "normal":
         sub_df = sub_df.applymap(lambda x: abs(int(pd.isna(x)) - 1))
         sub_df_text = sub_df.copy()
+
     elif "__call__" in dir(map_type):
         sub_df = sub_df.T
-        sub_df = sub_df.apply(lambda row: [sub_df.index[idx] if not pd.isna(v) else "NaN" for idx, v in enumerate(row)], axis=0)
+        sub_df = sub_df.apply(lambda row: [sub_df.index[idx] if v>0 else "NaN" for idx, v in enumerate(row)], axis=0)
         sub_df = sub_df.T
+        sub_df_text = sub_df.applymap(lambda x: map_type(x)+'<Br>'+x)
         sub_df = sub_df.applymap(lambda x: map_type(x))
-        sub_df_text = sub_df.copy()
         empty_list = sorted(set(sub_df.values.ravel()))
         le_dict = dict(zip(empty_list, range(1, len(empty_list) + 1)))
         le_dict.update({'nan': 0})
@@ -214,18 +188,18 @@ if __name__ == '__main__':
             rooted = 'AB030'
         else:
             tree_p = "/home/liaoth/data2/project/shenzhen_Acinetobacter/21_outgroup_roary_o/core_gene.newick"
-            rooted = 'midpoint'
+            rooted = 'AB030'
         fig, mmatrix, amatrix = main(merged_df,
                                      KL_df.columns,
                                      filter_sample=samples,
                                      tree_p=tree_p,
-                                     rooted='midpoint' if len(samples) == 21 else 'AB030',
+                                     rooted=rooted,
                                      accessory_cols=params.vf_cols,
                                      width=2000, height=1000)
         mmatrix.to_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/KL_extracted_reads/%s_heatmap_with_metadata.csv" % len(samples), index=True)
         plotly.offline.plot(fig, filename="/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/KL_extracted_reads/%s_heatmap_with_metadata.html" % len(samples),
                             auto_open=False)
-
+############################################################
     KL_df = pd.read_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/ad_analysis/KL_extracted_reads/fkpA_1-lldP_region/roary_o/gene_presence_absence.csv",
                         sep=',', index_col=0)
     KL_df = KL_df.iloc[:, 13:].T

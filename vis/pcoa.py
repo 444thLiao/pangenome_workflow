@@ -95,23 +95,7 @@ iter_output_PCoA(dist, metadata, odir, label='20_samples_based_SNP')
 
 ############################################################
 # input other data
-from vis.heatmap import process_df, total_df, vf_genes, res_genes
 
-vf_data, vf_data_text = process_df(total_df, vf_genes, filter_sample=True)
-subdata, submetadata = extract_samples(vf_data, metadata)
-iter_output_PCA(subdata, submetadata, odir, label='21_samples_based_VF_genes')
-
-res_data, res_data_text = process_df(total_df, res_genes, filter_sample=True)
-subdata, submetadata = extract_samples(res_data, metadata)
-iter_output_PCA(subdata, submetadata, odir, label='21_samples_based_RES_genes')
-
-vf_data, vf_data_text = process_df(total_df, vf_genes, filter_sample=False)
-subdata, submetadata = extract_samples(vf_data, metadata)
-iter_output_PCA(subdata, submetadata, odir, label='all_samples_based_VF_genes')
-
-res_data, res_data_text = process_df(total_df, res_genes, filter_sample=False)
-subdata, submetadata = extract_samples(res_data, metadata)
-iter_output_PCA(subdata, submetadata, odir, label='all_samples_based_RES_genes')
 ############################################################
 # For merge OXA-like
 from project_specific.params import OXAdict
