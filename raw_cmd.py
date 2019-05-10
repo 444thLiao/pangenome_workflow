@@ -4,17 +4,7 @@ from glob import glob
 from subprocess import check_call
 
 import pandas as pd
-
-
-def run_cmd(cmd, dryrun=False, **kwargs):
-    if dryrun:
-        print(cmd)
-    else:
-        try:
-            check_call(cmd, shell=True, executable="/usr/bin/zsh", **kwargs)
-        except:
-            print('##' * 50, '\n', cmd, '\n', "##" * 50)
-
+from toolkit.utils import run_cmd
 
 # todo: make it a pipelines instead a bunch of commands
 #####################################################################

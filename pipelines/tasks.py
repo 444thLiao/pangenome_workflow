@@ -1,0 +1,334 @@
+import os
+import sys
+from glob import glob
+from multiprocessing import cpu_count
+
+from constant_str import *
+
+from toolkit.utils import run_cmd, valid_path, randomString
+
+
+def check_exe():
+    def check_exists(exe_file):
+        if os.path.isfile(exe_file):
+            return exe_file
+        else:
+            return
+
+    check_list = dict(fastqc=fastqc_path,
+                      multiqc=multiqc_path,
+                      trimmomatic=trimmomatic_jar_path,
+                      shovill=shovill_path,
+                      prokka=prokka_path,
+                      roary=roary_path,
+                      quast=quast_path,
+                      pandoo=pandoo_path,
+                      fasttree=fasttree_path,
+                      isescan=ISEscan_path,
+                      abricate=abricate_path,
+                      abricate_py=abricate_py_path,
+                      )
+
+    for software in sorted(check_list):
+        path = check_exists(check_list[software])
+
+        if path is not None:
+            print(software.ljust(11) + ':\tok\t' + path.ljust(11), file=sys.stderr)
+        else:
+            print('Dependency ' + software + ' is not existed.  Please ' + \
+                  'check constrant_str',
+                  file=sys.stderr)
+
+
+def auto_update_exe():
+    # todo
+    check_list = dict(fastqc=fastqc_path,
+                      multiqc=multiqc_path,
+                      trimmomatic="java -jar " + trimmomatic_jar_path,
+                      shovill=shovill_path,
+                      prokka=prokka_path,
+                      roary=roary_path,
+                      quast=quast_path,
+                      pandoo=pandoo_path,
+                      fasttree=fasttree_path,
+                      isescan=ISEscan_path,
+                      abricate=abricate_path,
+                      abricate_py=abricate_py_path,
+                      )
+
+    pass
+
+
+# todo: check output valida process, and unify it.
+def run_fastqc(in_pattern,
+               odir,
+               thread=0,
+               exe_path=fastqc_path,
+               dry_run=False,
+               log_file=None):
+    if not dry_run:
+        valid_path(in_pattern, check_glob=True)
+    valid_path(odir, check_odir=True)
+    cmd = fastqc_cmd.format(exe_path=exe_path,
+                            in_pattern=in_pattern,
+                            threads=thread,
+                            odir=odir)
+    run_cmd(cmd, dry_run=dry_run, log_file=log_file)
+
+
+def run_multiqc(in_dir,
+                odir,
+                exe_path=multiqc_path,
+                dry_run=False,
+                log_file=None):
+    if not dry_run:
+        valid_path(in_dir, check_dir=True)
+    valid_path(odir, check_odir=True)
+    cmd = multiqc_cmd.format(exe_path=exe_path,
+                             indir=in_dir,
+                             odir=odir,
+                             fn='')
+    run_cmd(cmd, dry_run=dry_run, log_file=log_file)
+
+
+def run_trimmomatic(R1, R2, odir,
+                    sample_name,
+                    thread=0,
+                    exe_path=trimmomatic_jar_path,
+                    dry_run=False,
+                    log_file=None):
+    if thread == 0 or thread == -1:
+        thread = cpu_count()
+    if not dry_run:
+        valid_path([R1, R2], check_size=True)
+    valid_path(odir, check_odir=True)
+    clean_r1 = os.path.join(odir, sample_name + '_R1.clean.fq.gz')
+    unpaired_r1 = os.path.join(odir, sample_name + '_R1.unpaired.fq.gz')
+    clean_r2 = os.path.join(odir, sample_name + '_R2.clean.fq.gz')
+    unpaired_r2 = os.path.join(odir, sample_name + '_R2.unpaired.fq.gz')
+    log = os.path.join(odir, sample_name + '.log')
+    cmd = trimmomatic_cmd.format(exe_path=exe_path,
+                                 threads=thread,
+                                 R1=R1,
+                                 R2=R2,
+                                 log=log,
+                                 clean_r1=clean_r1,
+                                 unpaired_r1=unpaired_r1,
+                                 clean_r2=clean_r2,
+                                 unpaired_r2=unpaired_r2,
+                                 params=trimmomatic_setting)
+    run_cmd(cmd, dry_run=dry_run, log_file=log_file)
+
+
+def run_shovill(R1, R2, odir,
+                spades_extra_options=None,
+                thread=0,
+                extra_option='',
+                ram=100,  # unit G
+                depth=100,
+                exe_path=shovill_path,
+                dry_run=False,
+                log_file=None):
+    if thread == 0 or thread == -1:
+        thread = cpu_count()
+    if spades_extra_options is not None:
+        extra_str = ' --opts ' + spades_extra_options
+    else:
+        extra_str = ''
+    if not dry_run:
+        valid_path([R1, R2], check_size=True)
+    valid_path(odir, check_odir=True)
+    cmd = shovill_cmd.format(exe_path=exe_path,
+                             R1=R1,
+                             R2=R2,
+                             odir=odir,
+                             depth=depth,
+                             thread=thread,
+                             ram=ram)
+    cmd = ' '.join([cmd, extra_option, extra_str, ])
+    run_cmd(cmd, dry_run=dry_run, log_file=log_file)
+
+
+def run_prokka(infile, odir,
+               dry_run=False,
+               log_file=None):
+    if not dry_run:
+        valid_path(infile, check_size=True)
+    valid_path(odir, check_odir=True)
+    sample_name = os.path.basename(odir)
+    cmd = prokka_cmd.format(exe_path=prokka_path,
+                            infile=infile,
+                            odir=odir,
+                            sn=sample_name,
+                            )
+    run_cmd(cmd, dry_run=dry_run, log_file=log_file)
+
+
+def run_roary(indir, odir,
+              thread=0,
+              dry_run=False,
+              log_file=None):
+    if glob(os.path.join(indir, '*.gff')):
+        gff_pattern = os.path.join(indir, '*.gff')
+    else:
+        gff_pattern = os.path.join(indir, '*', '*.gff')
+    if not dry_run:
+        valid_path(gff_pattern, check_glob=True)
+    valid_path(odir, check_odir=True)
+    cmd = roary_cmd.format(exe_path=roary_path,
+                           thread=thread,
+                           odir=odir,
+                           gff_pattern=gff_pattern)
+    run_cmd(cmd, dry_run=dry_run, log_file=log_file)
+
+
+def run_abricate(indir,
+                 roary_dir,
+                 odir,
+                 thread=0,
+                 mincov=80,
+                 dry_run=False,
+                 log_file=None):
+    if thread == 0 or thread == -1:
+        thread = cpu_count()
+    if not dry_run:
+        valid_path(indir, check_dir=True)
+    valid_path(odir, check_odir=True)
+    inside_log_file = os.path.join(odir, 'abricate.log')
+    extra_str = "--log %s" % inside_log_file
+    if dry_run:
+        extra_str += ' --dry_run'
+    cmd = abricate_cmd.format(py_path=abricate_py_path,
+                              exe_path=abricate_path,
+                              indir=indir,
+                              roary_dir=roary_dir,
+                              odir=odir,
+                              db=abricate_db,
+                              mincov=mincov,
+                              thread=thread)
+    run_cmd(cmd, dry_run=dry_run, log_file=log_file)
+
+
+def run_pandoo(in_file,
+               odir,
+               thread=0,
+               dry_run=False,
+               log_file=None):
+    """ run without abricate"""
+    if thread == 0 or thread == -1:
+        thread = cpu_count()
+    if not dry_run:
+        valid_path(odir, check_odir=True)
+    valid_path(in_file, check_size=True)
+    cmd = pandoo_cmd.format(exe_path=pandoo_path,
+                            ariba_str=ariba_str,
+                            input=in_file,  # "isolates_pre.tab",
+                            thread=thread,
+                            odir=odir)
+    run_cmd(cmd, dry_run=dry_run, log_file=log_file)
+
+
+def run_fasttree(in_file,
+                 ofile,
+                 dry_run=False,
+                 log_file=None
+                 ):
+    if not dry_run:
+        valid_path(in_file, check_size=True)
+    cmd = fasttree_cmd.format(exe_path=fasttree_path,
+                              in_aln=in_file,
+                              o_newick=ofile)
+    run_cmd(cmd, dry_run=dry_run, log_file=log_file)
+
+
+def run_quast(contig,
+              R1,
+              R2,
+              ref,
+              gff,
+              odir,
+              thread=0,
+              dry_run=False,
+              log_file=None):
+    """ not loop inside a function in order to parallel"""
+    if thread == 0 or thread == -1:
+        thread = cpu_count()
+    if not dry_run:
+        valid_path([contig, R1, R2, ref, gff], check_size=True)
+    valid_path(odir, check_odir=True)
+    cmd = quast_cmd.format(exe_path=quast_path,
+                           contig=contig,
+                           R1=R1,
+                           R2=R2,
+                           ref=ref,
+                           gff=gff,
+                           threads=thread,
+                           odir=odir)
+    run_cmd(cmd, dry_run=dry_run, log_file=log_file)
+
+
+def run_ISEscan(in_pattern,
+                odir,
+                dry_run=False,
+                log_file=None):
+    tmp_list_file = os.path.join('/tmp', randomString(5) + '.list')
+    if not dry_run:
+        valid_path([in_pattern], check_glob=True)
+    valid_path(odir, check_odir=True)
+    with open(tmp_list_file, 'w') as f1:
+        f1.write('\n'.join(glob(in_pattern)))
+    cmd = isescan_cmd.format(exe_path=quast_path,
+                             in_list=tmp_list_file,
+                             odir=odir)
+    run_cmd(cmd, dry_run=dry_run, log_file=log_file)
+
+
+def run_phagefinder(dry_run=False,
+                    log_file=None):
+    pass
+
+
+def run_gubbins(dry_run=False,
+                log_file=None):
+    pass
+
+
+############################################################
+def access_assembly(r1, r2, ref, gff, test_dir, dryrun=True):
+    os.makedirs(test_dir, exist_ok=True)
+    contigs_list = []
+    for depth in [100, 200, 300]:
+        odir = os.path.join(test_dir, 'shovill_%s' % depth)
+        # os.makedirs(odir, exist_ok=True)
+        if not os.path.isdir(odir):
+            contigs_list.append(os.path.join(odir, 'contigs.fasta'))
+            # cmd = get_shovill_cmd(r1, r2, odir, depth, 30, "", "--minlen 500 --force")
+            # run_cmd(cmd, dryrun=dryrun)
+    odir = os.path.join(test_dir, 'full_spades_%s' % depth)
+    # os.makedirs(odir, exist_ok=True)
+    spades_path = "/tools/SPAdes-3.13.0-Linux/bin/spades.py"
+    spades_cmd = """{spades} --pe1-1 {r1} --pe1-2 {r2} --threads {threads} --memory 150 -o {odir}"""
+    cmd = spades_cmd.format(spades=spades_path,
+                            r1=r1,
+                            r2=r2,
+                            threads=35,
+                            odir=odir)
+    if not os.path.isdir(odir):
+        contigs_list.append(os.path.join(odir, 'scaffolds.fasta'))
+        run_cmd(cmd, dryrun=dryrun)
+
+    #####################################################################
+    quast_dir = os.path.join(test_dir, 'quast_all')
+    quast_path = "/home/liaoth/.local/bin/quast.py"
+    quast_cmd = """{exe_path} {contig} -r {ref} -g {gff} --circos --gene-finding -1 {r1} -2 {r2} --threads {threads} --no-check -o {odir} """
+    for contig_fn in contigs_list:
+        dir_name = os.path.basename(os.path.dirname(contig_fn))
+        cmd = quast_cmd.format(exe_path=quast_path,
+                               contig=contig_fn,
+                               r1=r1,
+                               r2=r1,
+                               ref=ref,
+                               gff=gff,
+                               threads=30,
+                               odir=os.path.join(quast_dir, dir_name))
+        run_cmd(cmd, dryrun=dryrun)

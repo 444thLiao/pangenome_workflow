@@ -1,17 +1,75 @@
 import os
+import random
+import string
+from glob import glob
 from subprocess import check_call
 
+import pandas as pd
 from Bio import SeqIO, Phylo
 
 
-def run_cmd(cmd, dryrun=False, **kwargs):
-    if dryrun:
-        print(cmd)
+def run_cmd(cmd, dry_run=False, log_file=None, **kwargs):
+    if type(log_file) == str:
+        log_file = open(log_file, 'w')
+    if dry_run:
+        if log_file is not None:
+            print(cmd, file=log_file)
+        else:
+            print(cmd)
     else:
-        try:
-            check_call(cmd, shell=True, executable="/usr/bin/zsh", **kwargs)
-        except:
-            print('##' * 50, '\n', cmd, '\n', "##" * 50)
+        check_call(cmd,
+                   shell=True,
+                   executable="/usr/bin/zsh",
+                   # stdout=log_file if log_file is not None else sys.stdout,
+                   # stderr=log_file if log_file is not None else sys.stderr,
+                   **kwargs)
+
+
+def valid_path(in_pth,
+               check_size=False,
+               check_dir=False,
+               check_glob=False,
+               check_odir=False):
+    if type(in_pth) == str:
+        in_pths = [in_pth]
+    else:
+        in_pths = in_pth[::]
+    for in_pth in in_pths:
+        if check_glob:
+            query_list = glob(in_pth)
+            if not query_list:
+                raise Exception('Error because of input file pattern %s' % in_pth)
+        if check_dir:
+            if not os.path.isdir(in_pth):
+                raise Exception("Error because %s doesn't exist" % in_pth)
+        if check_size:
+            if os.path.getsize(in_pth) < 0:
+                raise Exception("Error because %s does not contain content." % in_pth)
+        if check_odir:
+            if not os.path.isdir(in_pth):
+                os.makedirs(in_pth, exist_ok=True)
+    return True
+
+
+def batch_ln(source_dir, target_dir, suffix=None,
+             dry_run=False,
+             log_file=None):
+    ln_cmd = "ln -s {in_file} -t %s" % target_dir
+    if suffix is not None:
+        valid_path(os.path.join(source_dir, '*.' + suffix),
+                   check_glob=True)
+        in_files = glob(os.path.join(source_dir, '*.' + suffix))
+    else:
+        in_files = glob(os.path.join(source_dir, '*'))
+    for in_file in in_files:
+        run_cmd(ln_cmd.format(in_file=in_file),
+                dry_run=dry_run, log_file=log_file)
+
+
+def randomString(stringLength=10):
+    """Generate a random string of fixed length """
+    letters = string.ascii_letters + string.digits
+    return ''.join(random.choice(letters) for _ in range(stringLength))
 
 
 def get_length_fasta(fasta):
@@ -55,3 +113,43 @@ def get_tree(tree_pth, rooted=False):
         t.root_with_outgroup(rooted_node[0])
         return t
     return t
+
+
+def construct_pandoo_table(samples_name, odir):
+    """ Only for this pipelines, mostly file structure is fixed."""
+    isolates_df = pd.DataFrame()
+    for sn in samples_name:
+        isolates_df = isolates_df.append(pd.DataFrame(data=[[sn,
+                                                             os.path.join(odir, "assembly_o", "regular", sn, "contigs.fasta"),
+                                                             os.path.join(odir, "cleandata", sn + '_R1.clean.fq.gz'),
+                                                             os.path.join(odir, "cleandata", sn + '_R2.clean.fq.gz')
+                                                             ]], index=[0]))
+    return isolates_df
+
+
+def group_specific(df, group_dict, threshold=0):
+    """
+    :param df: 1/0 dataframe instead of np.nan dataframe
+    :param group_dict: {groupA:[s1,s2],groupB:[s3,s4]}
+    :return:
+    """
+    # df = df.loc[:,[idx for idx,v in df.iteritems() if pd.api.types.is_numeric_dtype(v)]]
+    group_specific_cols = {}
+    for g1 in group_dict.keys():
+        g2 = set(group_dict.keys()) - {g1}
+        g1_vals = group_dict[g1]
+        g2_vals = [v for g in g2 for v in group_dict[g]]
+
+        g1_specific = df.columns[(df.loc[g1_vals, :].fillna(0).sum(0) >= len(g1_vals) - threshold) &
+                                 (df.loc[g2_vals, :].fillna(0).sum(0) <= threshold)]
+        group_specific_cols[g1] = list(g1_specific)
+    return group_specific_cols
+
+
+def get_group_dict(df, col):
+    series = df.loc[:, col]
+    filtered_series = series[~pd.isna(series)]
+    group_dict = {v: [] for v in set(filtered_series)}
+    for idx, v in filtered_series.items():
+        group_dict[v].append(idx)
+    return group_dict

@@ -14,6 +14,7 @@ def create_heatmap(left_dist, main_matrix, up_dist=None, accessory_matrix=None, 
     #     (empty)          (empty)      [ (1,3) x3,y1 ]
     # [ (2,1) x1,y2 ]  [ (2,2) x2,y2 ]  [ (2,3) x3,y2 ]
     sub_df = main_matrix.copy()
+    _sub_df= None
     # create up side dendrogram
     if up_dist is not None:
         up_dendro = ff.create_dendrogram(up_dist.values,

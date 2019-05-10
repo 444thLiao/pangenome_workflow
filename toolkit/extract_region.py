@@ -5,24 +5,16 @@ import pandas as pd
 from Bio import SeqIO
 from tqdm import tqdm
 
-tmp_dir = '/tmp'
-def clean_db(tab,prokka_dir):
-    data = pd.read_csv(tab, sep=',', index_col=0, low_memory=False)
-    for name in data.loc[g1, :][13:].index:
-        gff_fn = os.path.join(prokka_dir, name, '%s.gff' % name)
-        dbfn = os.path.join(tmp_dir, os.path.basename(gff_fn).split('.')[0])
-        os.remove(dbfn)
-
-def get_gff(gff_fn, locus_tag):
-
+def get_gff(gff_fn):
+    tmp_dir = '/tmp'
     dbfn = os.path.join(tmp_dir, os.path.basename(gff_fn).split('.')[0])
     if os.path.isfile(dbfn):
         fn = gffutils.FeatureDB(dbfn, keep_order=True)
     else:
         fn = gffutils.create_db(gff_fn, dbfn=dbfn)
-    cds = fn[locus_tag]
+
     # cds.start
-    return cds
+    return fn
 
 
 def seq_between_gene1_gene2(tab, prokka_dir, outdir, g1, g2):
@@ -37,8 +29,9 @@ def seq_between_gene1_gene2(tab, prokka_dir, outdir, g1, g2):
     for name in tqdm(row1.index):
         gff_file = os.path.join(prokka_dir, name, '%s.gff' % name)
         fasta_file = os.path.join(prokka_dir, name, '%s.fna' % name)
-        cds1 = get_gff(gff_file, row1[name])
-        cds2 = get_gff(gff_file, row2[name])
+        gff_obj = get_gff(gff_file)
+        cds1 = gff_obj[row1[name]]
+        cds2 = gff_obj[row2[name]]
         starts = [cds1.start, cds2.start, cds1.end, cds2.end]
         ends = [cds1.start, cds2.start, cds1.end, cds2.end]
         # if cds1.strand != cds2.strand:
@@ -54,10 +47,6 @@ def seq_between_gene1_gene2(tab, prokka_dir, outdir, g1, g2):
         subseq.id = "%s: gene region (%s-%s) (%s:%s-%s)" % (name, g1, g2, cds1.chrom, start, end)
         with open(os.path.join(outdir, name + ".fa"), 'w') as f1:
             SeqIO.write(subseq, f1, format='fasta')
-
-# def main(g1,g2,tab,prokka_dir,outdir):
-#     base_dir = "%s-%s_region" % (g1, g2)
-#     seq_between_gene1_gene2(tab, prokka_dir, os.path.join(outdir, base_dir), g1, g2)
 
 if __name__ == '__main__':
     g1 = 'fkpA_1'

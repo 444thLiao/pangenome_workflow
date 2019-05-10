@@ -85,8 +85,8 @@ for sample in samples2locus.keys():
 
 for locus,annotate in locus2annotate.items():
     locus2annotate[locus] = rename_genes.get(annotate,annotate)
-locus2annotate_df = pd.DataFrame.from_dict({0:locus2annotate})
-locus2annotate_df.loc[:,'db'] = [annotate2db[_] for _ in locus2annotate_df.loc[:,0]]
+locus2annotate_df = pd.DataFrame.from_dict({'gene':locus2annotate})
+locus2annotate_df.loc[:,'db'] = [annotate2db[_] for _ in locus2annotate_df.loc[:,'gene']]
 locus2annotate_df.to_csv('/home/liaoth/project/shenzhen_actineto/all_65_annotated_locus2annotate.tab',sep='\t',index=1)
 
 abricate_result = pd.DataFrame.from_dict(samples2genes,orient='index')
