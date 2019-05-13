@@ -3,7 +3,7 @@
 ####  it could be taken as test module.
 ####
 #################################################################################
-from tasks import *
+from pipelines.tasks import *
 
 
 def main(indir, odir, dry_run=False):
@@ -15,13 +15,13 @@ def main(indir, odir, dry_run=False):
     fastqc_in_pattern = os.path.join(indir,
                                      '*',
                                      "*.fq.gz")
-    run_fastqc(in_pattern=fastqc_in_pattern,
+    run_fastqc(in_files=glob(fastqc_in_pattern),
                odir=fastqc_o_dir,
-               thread=0,
                dry_run=dry_run,
                log_file=log_file_stream)
     run_multiqc(in_dir=fastqc_o_dir,
-                odir=os.path.join(fastqc_o_dir),
+                odir=fastqc_o_dir,
+                fn=os.path.basename(fastqc_o_dir),
                 dry_run=dry_run,
                 log_file=log_file_stream)
     ############################################################
@@ -45,12 +45,13 @@ def main(indir, odir, dry_run=False):
     fastqc_in_pattern = os.path.join(odir,
                                      "cleandata",
                                      "*.clean.fq.gz")
-    run_fastqc(in_pattern=fastqc_in_pattern,
+    run_fastqc(in_files=glob(fastqc_in_pattern),
                odir=fastqc_o_dir,
                dry_run=dry_run,
                log_file=log_file_stream)
     run_multiqc(in_dir=fastqc_o_dir,
-                odir=os.path.join(fastqc_o_dir),
+                odir=fastqc_o_dir,
+                fn=os.path.basename(fastqc_o_dir),
                 dry_run=dry_run,
                 log_file=log_file_stream)
     ############################################################
@@ -139,5 +140,13 @@ def main(indir, odir, dry_run=False):
 if __name__ == '__main__':
     indir = "/home/liaoth/data2/pangenome/shenzhen_Acinetobacter"
     odir = "/home/liaoth/project/genome_pipelines/pipelines/test/test_output"
-    main(indir, odir, dry_run=False)
-    # check_exe()
+    import sys
+    if sys.argv[1] == 'check':
+        check_exe()
+    elif sys.argv[1] == 'test':
+        main(indir, odir, dry_run=True)
+    elif sys.argv[1] == 'run':
+        main(indir, odir, dry_run=False)
+
+
+

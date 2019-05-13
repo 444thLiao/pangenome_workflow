@@ -13,7 +13,7 @@ trimmomatic_dir = "/home/liaoth/tools/Trimmomatic-0.36"
 trimmomatic_setting = "ILLUMINACLIP:%s/adapters/TruSeq3-PE.fa:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:5" % trimmomatic_dir
 trimmomatic_jar_path = "%s/trimmomatic-0.36.jar" % trimmomatic_dir
 
-shovill_path = "/home/liaoth/tools/shovill/bin/shovill"
+shovill_path = "/home/liaoth/tools/anaconda3/envs/pangenome_pipelines/bin/shovill"
 prokka_path = "/home/liaoth/tools/prokka/bin//prokka"
 roary_path = "/usr/bin/roary"
 quast_path = "/usr/local/bin/quast.py"
@@ -34,15 +34,16 @@ ariba_str = str({k: "{db}/{name}".format(db=ariba_db, name=k.lower()) for k in a
 ############################################################
 # unformatted command line
 ############################################################
-fastqc_cmd = "{exe_path} {in_pattern} -t {threads} -o {odir} --quiet"
+fastqc_cmd = "{exe_path} {in_files} -t 2 -o {odir} --quiet"
 multiqc_cmd = "{exe_path} {indir} --outdir {odir} --filename {fn} --force -q"
 trimmomatic_cmd = """java -jar {exe_path} PE -threads {threads} {R1} {R2} -trimlog {log} {clean_r1} {unpaired_r1} {clean_r2} {unpaired_r2} {params}"""
 
-shovill_cmd = """{exe_path} --outdir {odir} --ram {ram} --R1 {R1} --R2 {R2} --depth {depth} --cpus {thread} --minlen 500"""
+shovill_cmd = """{exe_path} --outdir {odir} --ram {ram} --R1 {R1} --R2 {R2} --depth {depth} --cpus {thread} --minlen 500 --force"""
+# force otherwise it will exit because of pre-created the directory.
 prokka_cmd = "{exe_path} {infile} --outdir {odir} --prefix {sn} --force --quiet"
 roary_cmd = "{exe_path} -r -v -e --mafft -p {thread} -f {odir} {gff_pattern}"
 
-quast_cmd = """{exe_path} {contig} -r {ref} -g {gff} --circos --gene-finding -1 {R1} -2 {R2} --threads {threads} --no-check -o {odir} """
+quast_cmd = """{exe_path} {contig} --circos --gene-finding -1 {R1} -2 {R2} --threads {threads} --no-check -o {odir} {extra_str}"""
 
 pandoo_cmd = """{exe_path} run -i {input} -o {odir} -t -r -b "{ariba_str}" -c {thread}"""
 # -t: --infer_tree_on; -r: --abaricate_on; -b: --ariba_dbs;
@@ -50,4 +51,4 @@ pandoo_cmd = """{exe_path} run -i {input} -o {odir} -t -r -b "{ariba_str}" -c {t
 fasttree_cmd = "{exe_path} -nt -gtr {in_aln} > {o_newick}"
 
 isescan_cmd = "{exe_path} {in_list} {odir}"
-abricate_cmd = "{py_path} -i {indir} -r {roary_dir} -o {odir} -db {db} -mc {mincov} --abricate_path {exe_path} --threads {thread}"
+abricate_cmd = "python {py_path} -i {indir} -r {roary_dir} -o {odir} -db {db} -mc {mincov} --abricate_path {exe_path} --threads {thread}"

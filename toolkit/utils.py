@@ -1,28 +1,36 @@
 import os
 import random
 import string
+import sys
 from glob import glob
 from subprocess import check_call
 
 import pandas as pd
 from Bio import SeqIO, Phylo
 
+def validate_table(df):
+    if df.loc[df.index.drop_duplicates(),:].shape[0] != df.shape[0]:
+        raise Exception("sample name contains duplicates")
+    both_null = df.loc[(df.iloc[:,0].isna()) & (df.iloc[:,1].isna()),:]
+    if both_null.shape[0] != 0:
+        raise Exception("Some rows doesn't have R1 and R2. ")
 
 def run_cmd(cmd, dry_run=False, log_file=None, **kwargs):
     if type(log_file) == str:
         log_file = open(log_file, 'w')
-    if dry_run:
-        if log_file is not None:
-            print(cmd, file=log_file)
-        else:
-            print(cmd)
-    else:
+    elif log_file is None:
+        log_file = sys.stdout
+
+    print(cmd, file=log_file)
+    log_file.flush()
+    if not dry_run:
         check_call(cmd,
                    shell=True,
                    executable="/usr/bin/zsh",
-                   # stdout=log_file if log_file is not None else sys.stdout,
-                   # stderr=log_file if log_file is not None else sys.stderr,
+                   stdout=log_file if log_file is not None else sys.stdout,
+                   stderr=log_file if log_file is not None else sys.stderr,
                    **kwargs)
+        log_file.flush()
 
 
 def valid_path(in_pth,
@@ -35,6 +43,8 @@ def valid_path(in_pth,
     else:
         in_pths = in_pth[::]
     for in_pth in in_pths:
+        if in_pth is None:
+            continue
         if check_glob:
             query_list = glob(in_pth)
             if not query_list:
@@ -64,6 +74,7 @@ def batch_ln(source_dir, target_dir, suffix=None,
     for in_file in in_files:
         run_cmd(ln_cmd.format(in_file=in_file),
                 dry_run=dry_run, log_file=log_file)
+        log_file.flush()
 
 
 def randomString(stringLength=10):

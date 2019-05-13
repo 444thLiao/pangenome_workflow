@@ -3,9 +3,9 @@ import sys
 from glob import glob
 from multiprocessing import cpu_count
 
-from constant_str import *
+from .constant_str import *
 
-from toolkit.utils import run_cmd, valid_path, randomString
+from toolkit.utils import run_cmd, valid_path, randomString, validate_table,construct_pandoo_table
 
 
 def check_exe():
@@ -60,24 +60,23 @@ def auto_update_exe():
 
 
 # todo: check output valida process, and unify it.
-def run_fastqc(in_pattern,
+def run_fastqc(in_files,
                odir,
-               thread=0,
                exe_path=fastqc_path,
                dry_run=False,
                log_file=None):
     if not dry_run:
-        valid_path(in_pattern, check_glob=True)
+        valid_path(in_files, check_size=True)
     valid_path(odir, check_odir=True)
     cmd = fastqc_cmd.format(exe_path=exe_path,
-                            in_pattern=in_pattern,
-                            threads=thread,
+                            in_files=' '.join(in_files),
                             odir=odir)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 
 def run_multiqc(in_dir,
                 odir,
+                fn,
                 exe_path=multiqc_path,
                 dry_run=False,
                 log_file=None):
@@ -87,7 +86,7 @@ def run_multiqc(in_dir,
     cmd = multiqc_cmd.format(exe_path=exe_path,
                              indir=in_dir,
                              odir=odir,
-                             fn='')
+                             fn=fn)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 
@@ -102,6 +101,7 @@ def run_trimmomatic(R1, R2, odir,
     if not dry_run:
         valid_path([R1, R2], check_size=True)
     valid_path(odir, check_odir=True)
+    sample_name = str(sample_name)
     clean_r1 = os.path.join(odir, sample_name + '_R1.clean.fq.gz')
     unpaired_r1 = os.path.join(odir, sample_name + '_R1.unpaired.fq.gz')
     clean_r2 = os.path.join(odir, sample_name + '_R2.clean.fq.gz')
@@ -244,10 +244,10 @@ def run_fasttree(in_file,
 def run_quast(contig,
               R1,
               R2,
-              ref,
-              gff,
               odir,
               thread=0,
+              ref=None,
+              gff=None,
               dry_run=False,
               log_file=None):
     """ not loop inside a function in order to parallel"""
@@ -256,28 +256,32 @@ def run_quast(contig,
     if not dry_run:
         valid_path([contig, R1, R2, ref, gff], check_size=True)
     valid_path(odir, check_odir=True)
+    extra_str = ''
+    if ref is not None:
+        extra_str = """ -r "%s" """ % ref
+    if gff is not None:
+        extra_str += """ -g "%s" """ % gff
     cmd = quast_cmd.format(exe_path=quast_path,
                            contig=contig,
                            R1=R1,
                            R2=R2,
-                           ref=ref,
-                           gff=gff,
+                           extra_str=extra_str,
                            threads=thread,
                            odir=odir)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 
-def run_ISEscan(in_pattern,
+def run_ISEscan(in_files,
                 odir,
                 dry_run=False,
                 log_file=None):
     tmp_list_file = os.path.join('/tmp', randomString(5) + '.list')
     if not dry_run:
-        valid_path([in_pattern], check_glob=True)
+        valid_path(in_files, check_size=True)
     valid_path(odir, check_odir=True)
     with open(tmp_list_file, 'w') as f1:
-        f1.write('\n'.join(glob(in_pattern)))
-    cmd = isescan_cmd.format(exe_path=quast_path,
+        f1.write('\n'.join(in_files))
+    cmd = isescan_cmd.format(exe_path=ISEscan_path,
                              in_list=tmp_list_file,
                              odir=odir)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
