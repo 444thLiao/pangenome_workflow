@@ -3,9 +3,8 @@ import sys
 from glob import glob
 from multiprocessing import cpu_count
 
+from toolkit.utils import run_cmd, valid_path, randomString, validate_table
 from .constant_str import *
-
-from toolkit.utils import run_cmd, valid_path, randomString, validate_table,construct_pandoo_table
 
 
 def check_exe():
@@ -195,7 +194,7 @@ def run_abricate(indir,
         valid_path(indir, check_dir=True)
     valid_path(odir, check_odir=True)
     inside_log_file = os.path.join(odir, 'abricate.log')
-    extra_str = "--log %s" % inside_log_file
+    extra_str = " --log %s" % inside_log_file
     if dry_run:
         extra_str += ' --dry_run'
     cmd = abricate_cmd.format(py_path=abricate_py_path,
@@ -205,7 +204,8 @@ def run_abricate(indir,
                               odir=odir,
                               db=abricate_db,
                               mincov=mincov,
-                              thread=thread)
+                              thread=thread,
+                              extra_str=extra_str)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 
@@ -284,6 +284,24 @@ def run_ISEscan(in_files,
     cmd = isescan_cmd.format(exe_path=ISEscan_path,
                              in_list=tmp_list_file,
                              odir=odir)
+    run_cmd(cmd, dry_run=dry_run, log_file=log_file)
+
+
+def run_plasmid_detect(indir,
+                       roary_dir,
+                       prokka_dir,
+                       odir,
+                       dry_run=False,
+                       log_file=None):
+    if not dry_run:
+        valid_path(indir, check_dir=True)
+    valid_path(odir, check_odir=True)
+
+    cmd = plasmid_detect_cmd.format(py_path=plasmid_detect_path,
+                                    indir=indir,
+                                    roary_dir=roary_dir,
+                                    prokka_dir=prokka_dir,
+                                    odir=odir)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 

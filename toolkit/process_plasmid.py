@@ -1,13 +1,16 @@
-from glob import glob
-import os, re
-from subprocess import check_output
+import os
+import re
 from collections import defaultdict
-from tqdm import tqdm
+from glob import glob
+from subprocess import check_output
+
 import pandas as pd
+from tqdm import tqdm
 
 if __name__ == "__main__" and __package__ is None:
     import sys
-    sys.path.insert(0,os.path.dirname(os.path.dirname(__file__)))
+
+    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from toolkit.utils import run_cmd, get_locus2group, get_length_fasta
 from toolkit.get_gene_info import get_gene_with_regin
@@ -98,9 +101,10 @@ def main(indir, roary_dir, prokka_dir, odir):
                                       length_plasmidscontigs / length_contigs
                                       ]])
         summary_df = summary_df.append(_sub_df)
-    # todo: process output; except a statistic info(summary df), (plasmids_genes) also important.
-    summary_pth = os.path.join(odir,"plasmid_summary.csv")
-    summary_df.to_csv(summary_pth,sep=',')
+    # todo: process output; except a statistic info(summary df), (plasmids_genes) also important. Cut corresponding gff/region into files.
+    summary_pth = os.path.join(odir, "plasmid_summary.csv")
+    summary_df.to_csv(summary_pth, sep=',')
+
 
 if __name__ == '__main__':
     import argparse
@@ -118,4 +122,5 @@ if __name__ == '__main__':
     prokka_dir = os.path.abspath(args.prokka_dir)
     # import pdb;pdb.set_trace()
     # import code;code.interact(local=vars())
+    os.makedirs(odir, exist_ok=True)
     main(indir, roary_dir, prokka_dir, odir)

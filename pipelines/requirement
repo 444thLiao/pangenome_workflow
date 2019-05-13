@@ -4,4 +4,4 @@
 
 conda install -c bioconda -n pangenome_pipelines shovill perl-bioperl
 conda install -c conda-forge -n pangenome_pipelines prokka ncurses
-pip install tqdm luigi pandas biopython
+pip install tqdm luigi pandas biopython fastcluster

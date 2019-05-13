@@ -186,9 +186,14 @@ class shovill(luigi.Task):
                            dry_run=self.dry_run)
 
     def output(self):
+        if self.status == 'plasmid':
+            dirname = "regular"
+        else:
+            dirname = "plasmidsSpades"
+
         odir = os.path.join(self.odir,
                             "assembly_o",
-                            "regular",
+                            dirname,
                             str(self.sample_name))
         return luigi.LocalTarget(os.path.join(odir, "contigs.fasta"))
 
@@ -234,7 +239,7 @@ class prokka(luigi.Task):
 
     def run(self):
         prokka_in_file = self.input().path
-        run_prokka(infile=prokka_in_file.replace('.fasta','.fa'),
+        run_prokka(infile=prokka_in_file.replace('.fasta', '.fa'),
                    odir=os.path.dirname(self.output().path),
                    dry_run=self.dry_run,
                    log_file=log_file_stream)
@@ -385,6 +390,38 @@ class ISEscan(luigi.Task):
                     log_file=log_file_stream)
 
 
+class detect_plasmid(luigi.Task):
+    PE_data = luigi.TupleParameter()
+    odir = luigi.Parameter()
+    dry_run = luigi.BoolParameter()
+
+    def requires(self):
+        required_tasks = []
+        required_tasks += [shovill(R1=_R1,
+                                   R2=_R2,
+                                   sample_name=sn,
+                                   odir=self.odir,
+                                   dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
+        required_tasks += [shovill(R1=_R1,
+                                   R2=_R2,
+                                   sample_name=sn,
+                                   odir=self.odir,
+                                   dry_run=self.dry_run,
+                                   status="plasmid") for sn, _R1, _R2 in self.PE_data]
+        return required_tasks
+
+    def output(self):
+        return os.path.join(self.odir, "plasmid_summary.csv")
+
+    def run(self):
+        run_plasmid_detect(indir=os.path.join(self.odir, "assembly_o"),
+                           roary_dir=os.path.join(self.odir, "all_roary_o"),
+                           prokka_dir=os.path.join(self.odir, "prokka_o"),
+                           odir=os.path.join(self.odir, "plasmid_summary"),
+                           dry_run=self.dry_run,
+                           log_file=log_file_stream)
+
+
 class workflow(luigi.Task):
     tab = luigi.Parameter()
     odir = luigi.Parameter()
@@ -448,6 +485,11 @@ class workflow(luigi.Task):
                                     SE_data=singlereads,
                                     odir=self.odir,
                                     dry_run=self.dry_run))
+        require_tasks.append(detect_plasmid(PE_data=pairreads,
+                                            SE_data=singlereads,
+                                            odir=self.odir,
+                                            dry_run=self.dry_run))
+
         return require_tasks
 
 

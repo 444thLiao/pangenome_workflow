@@ -12,6 +12,7 @@ __pycache__/
 # removes files
 temp-plot.html
 pipelines/test/
+pipelines/constant_str.py
 # C extensions
 *.so
 
