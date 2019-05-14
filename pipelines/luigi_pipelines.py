@@ -239,7 +239,7 @@ class prokka(luigi.Task):
     def requires(self):
         if not self.R2:
             return
-        else:
+        elif not self.R2:
             return shovill(R1=self.R1,
                            R2=self.R2,
                            odir=self.odir,
@@ -256,9 +256,9 @@ class prokka(luigi.Task):
 
     def run(self):
         if not self.R2:
-            prokka_in_file = self.input().path
-        else:
             prokka_in_file = self.R1
+        elif not self.R2:
+            prokka_in_file = self.input().path
         run_prokka(infile=prokka_in_file,
                    odir=os.path.dirname(self.output().path),
                    dry_run=self.dry_run,
@@ -335,12 +335,19 @@ class pandoo(luigi.Task):
         for idx in range(len(self.PE_data)):
             sn, _R1, _R2 = self.PE_data[idx]
             pandoo_tab = pandoo_tab.append(pd.DataFrame([[self.input()[idx].path,
-                                                          '',
+                                                          _R1,
                                                           _R2,
                                                           ]], index=[sn]))
         for idx in range(len(self.SE_data)):
             sn, _R1 = self.SE_data[idx]
-            pandoo_tab = pandoo_tab.append(pd.DataFrame([[_R1,
+            formatted_name = os.path.join(self.odir,
+                                          "cleandata",
+                                          "%s.fasta" % sn)
+            if not os.path.isfile(formatted_name):
+                os.system("ln -s {ori} {new}".format(ori=_R1,
+                                                     new=formatted_name))
+            inpth = formatted_name
+            pandoo_tab = pandoo_tab.append(pd.DataFrame([[inpth,
                                                           '',
                                                           '',
                                                           ]], index=[sn]))
@@ -410,21 +417,29 @@ class ISEscan(luigi.Task):
 
     def output(self):
         ofile = os.path.join(str(self.odir),
-                             "ISscan_result",
-                             str(self.sample_name),
-                             'contigs.fa.gff')
+                         "ISscan_result",
+                         str(self.sample_name),
+                         'contigs.fa.gff')
 
         return luigi.LocalTarget(ofile)
 
     def run(self):
         if not self.R2:
-            infile_pth = self.R1
+            formatted_name = os.path.join(self.odir,
+                                          "cleandata",
+                                          "%s.fasta" % self.sample_name)
+            if not os.path.isfile(formatted_name):
+                os.system("ln -s '{ori}' {new}".format(ori=self.R1,
+                                                     new=formatted_name))
+            infile_pth = formatted_name
         elif self.R2:
             infile_pth = self.input().path
         else:
             raise Exception
+
         run_ISEscan(infile=infile_pth,
                     odir=os.path.dirname(os.path.dirname(self.output().path)),
+                    sample_name=self.sample_name,
                     dry_run=self.dry_run,
                     log_file=log_file_stream)
 

@@ -274,6 +274,7 @@ def run_quast(contig,
 
 def run_ISEscan(infile,
                 odir,
+                sample_name,
                 dry_run=False,
                 log_file=None):
 
@@ -284,7 +285,8 @@ def run_ISEscan(infile,
                              infile=infile,
                              proteome_dir=os.path.join(odir, "proteome"),
                              hmm_dir=os.path.join(odir, "hmm"),
-                             odir=odir)
+                             odir=odir,
+                             sn=sample_name)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 
