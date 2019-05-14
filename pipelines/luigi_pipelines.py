@@ -189,15 +189,23 @@ class shovill(luigi.Task):
     def output(self):
         if self.status == 'plasmid':
             dirname = "plasmidsSpades"
+            ofile = "contigs.fasta"
         elif self.status == 'regular':
             dirname = "regular"
+            ofile = "contigs.fa"
         else:
             raise Exception
         odir = os.path.join(self.odir,
                             "assembly_o",
                             dirname,
                             str(self.sample_name))
-        return luigi.LocalTarget(os.path.join(odir, "contigs.fasta"))
+        return luigi.LocalTarget(os.path.join(odir,
+                                              ofile))
+
+    # .fasta header like >NODE_1_length_292801_cov_27.424733_pilon
+    # .fa header like >contig00001 len=292801 cov=27.4 corr=0 spades=NODE_1_length_292801_cov_27.424733_pilon
+    # plasmid pipelines need to use .fasta(which include index of plasmid info),
+    # regular pipelines need to use .fa(which use contig0000x as formatted name)
 
     def run(self):
 
@@ -248,7 +256,7 @@ class prokka(luigi.Task):
 
     def run(self):
         if not self.R2:
-            prokka_in_file = self.input().path.replace('.fasta', '.fa')
+            prokka_in_file = self.input().path
         else:
             prokka_in_file = self.R1
         run_prokka(infile=prokka_in_file,
@@ -327,13 +335,13 @@ class pandoo(luigi.Task):
         for idx in range(len(self.PE_data)):
             sn, _R1, _R2 = self.PE_data[idx]
             pandoo_tab = pandoo_tab.append(pd.DataFrame([[self.input()[idx].path,
-                                                          _R1,
+                                                          '',
                                                           _R2,
                                                           ]], index=[sn]))
         for idx in range(len(self.SE_data)):
             sn, _R1 = self.SE_data[idx]
-            pandoo_tab = pandoo_tab.append(pd.DataFrame([[self.input()[idx].path,
-                                                          _R1,
+            pandoo_tab = pandoo_tab.append(pd.DataFrame([[_R1,
+                                                          '',
                                                           '',
                                                           ]], index=[sn]))
         pandoo_file = os.path.join(self.odir, "pandoo_input.tab")
@@ -364,8 +372,10 @@ class abricate(luigi.Task):
         return require_tasks
 
     def output(self):
-        odir = os.path.join(self.odir, "abricate_result")
-        ofile = os.path.join(odir, "locus2annotate.csv")
+        odir = os.path.join(str(self.odir),
+                            "abricate_result")
+        ofile = os.path.join(odir,
+                             "locus2annotate.csv")
         return luigi.LocalTarget(ofile)
 
     def run(self):
@@ -410,7 +420,7 @@ class ISEscan(luigi.Task):
         if not self.R2:
             infile_pth = self.R1
         elif self.R2:
-            infile_pth = self.input().path.replace('.fasta', '.fa')
+            infile_pth = self.input().path
         else:
             raise Exception
         run_ISEscan(infile=infile_pth,
@@ -499,24 +509,37 @@ class ISEscan_summary(luigi.Task):
 
 class detect_plasmid(luigi.Task):
     PE_data = luigi.TupleParameter()
-    SE_data = luigi.TupleParameter()
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter()
 
     def requires(self):
-        required_tasks = []
-        required_tasks += [shovill(R1=_R1,
-                                   R2=_R2,
-                                   sample_name=sn,
-                                   odir=self.odir,
-                                   dry_run=self.dry_run,
-                                   status="regular") for sn, _R1, _R2 in self.PE_data]
-        required_tasks += [shovill(R1=_R1,
-                                   R2=_R2,
-                                   sample_name=sn,
-                                   odir=self.odir,
-                                   dry_run=self.dry_run,
-                                   status="plasmid") for sn, _R1, _R2 in self.PE_data]
+        required_tasks = {"IS_scan": [],
+                          "prokka": [],
+                          "roary": '',
+                          "shovill": []}
+
+        required_tasks["IS_scan"] += [ISEscan(R1=_R1,
+                                              R2=_R2,
+                                              sample_name=sn,
+                                              odir=self.odir,
+                                              dry_run=self.dry_run,
+                                              ) for sn, _R1, _R2 in self.PE_data]
+        required_tasks["prokka"] += [prokka(R1=_R1,
+                                            R2=_R2,
+                                            sample_name=sn,
+                                            odir=self.odir,
+                                            dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
+        required_tasks["roary"] = roary(PE_data=self.PE_data,
+                                        odir=self.odir,
+                                        dry_run=self.dry_run)
+        required_tasks["shovill"] += [shovill(R1=_R1,
+                                              R2=_R2,
+                                              sample_name=sn,
+                                              odir=self.odir,
+                                              dry_run=self.dry_run,
+                                              status='regular'
+                                              ) for sn, _R1, _R2 in self.PE_data]
+
         return required_tasks
 
     def output(self):
@@ -525,10 +548,10 @@ class detect_plasmid(luigi.Task):
                                               "plasmid_summary.csv"))
 
     def run(self):
-        run_plasmid_detect(indir=os.path.join(str(self.odir), "assembly_o"),
-                           roary_dir=os.path.join(str(self.odir), "all_roary_o"),
-                           prokka_dir=os.path.join(str(self.odir), "prokka_o"),
-                           odir=os.path.join(str(self.odir), "plasmid_summary"),
+        run_plasmid_detect(indir=str(self.input()["shovill"][0].path).rsplit('/', maxsplit=3)[0],  # todo: maybe not compatiable to windows OS.
+                           roary_dir=os.path.dirname(self.input()["roary"][0].path),
+                           prokka_dir=os.path.dirname(os.path.dirname(self.input()["prokka"][0].path)),
+                           odir=os.path.dirname(self.output().path),
                            dry_run=self.dry_run,
                            log_file=log_file_stream)
 
@@ -598,7 +621,6 @@ class workflow(luigi.Task):
                                     odir=self.odir,
                                     dry_run=self.dry_run))
         require_tasks.append(detect_plasmid(PE_data=pairreads,
-                                            SE_data=singlereads,
                                             odir=self.odir,
                                             dry_run=self.dry_run))
 
@@ -615,5 +637,7 @@ if __name__ == '__main__':
     #             )
     log_file_stream.close()
     # python -m luigi --module pipelines.luigi_pipelines workflow --tab /home/liaoth/project/genome_pipelines/pipelines/test/test_input.tab --odir /home/liaoth/project/genome_pipelines/pipelines/test/test_luigi  --parallel-scheduling --workers 12
+    # local cmd
 
     # python -m luigi --module pipelines.luigi_pipelines workflow --tab /home/liaoth/tools/genome_pipelines/pipelines/test/test_input.tab --odir /home/liaoth/tools/genome_pipelines/pipelines/test/test_luigi  --parallel-scheduling --workers 12
+    # server cmd
