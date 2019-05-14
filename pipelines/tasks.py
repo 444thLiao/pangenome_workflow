@@ -76,6 +76,7 @@ def run_fastqc(in_files,
 def run_multiqc(in_dir,
                 odir,
                 fn,
+                extra_str='',
                 exe_path=multiqc_path,
                 dry_run=False,
                 log_file=None):
@@ -85,7 +86,8 @@ def run_multiqc(in_dir,
     cmd = multiqc_cmd.format(exe_path=exe_path,
                              indir=in_dir,
                              odir=odir,
-                             fn=fn)
+                             fn=fn,
+                             extra_str=extra_str)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 
@@ -307,6 +309,14 @@ def run_plasmid_detect(indir,
                                     odir=odir)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
+
+# todo: add more post-analysis to it.
+    # checkM (completeness of assembly data) https://github.com/Ecogenomics/CheckM
+    # phigaro (prophage finder) https://github.com/bobeobibo/phigaro
+    # gubbins (recombination) https://github.com/sanger-pathogens/gubbins
+    # popins (new IS) https://github.com/bkehr/popins
+
+# todo: add auto generated heatmap for this pipelines.
 
 def run_phagefinder(dry_run=False,
                     log_file=None):

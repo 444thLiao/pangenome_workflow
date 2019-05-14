@@ -72,9 +72,16 @@ class multiqc(luigi.Task):
                           sample_name=sn,
                           other_info=self.other_info,
                           dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
+        else:
+            raise Exception
 
     def output(self):
-        indir = os.path.dirname(self.input()[0][0].path)  # any one is ok
+        if self.status == 'before' or self.status == 'after':
+            indir = os.path.dirname(self.input()[0][0].path)  # any one is ok
+        elif self.status == "quast":
+            indir = os.path.dirname(os.path.dirname(self.input()[0].path)) # any one is ok
+        else:
+            raise Exception
         filename = os.path.basename(indir)
         target_file = os.path.join(indir, filename + '.html')
         return luigi.LocalTarget(target_file)
@@ -83,11 +90,16 @@ class multiqc(luigi.Task):
         # if self.status == 'before' or self.status == 'after':
         #     indir = os.path.dirname(self.input()[0].path)  # any one is ok
         # elif self.status == "quast":
-        indir = os.path.dirname(self.input()[0][0].path)  # any one is ok
+        if self.status == 'quast':
+            extra_str = " -dd 1"
+        else:
+            extra_str = ''
+        indir = os.path.dirname(self.output().path)  # any one is ok
         filename = os.path.basename(indir)
         run_multiqc(in_dir=indir,
                     odir=indir,
                     fn=filename,
+                    extra_str=extra_str,
                     dry_run=self.dry_run,
                     log_file=log_file_stream)
 
@@ -150,7 +162,8 @@ class quast(luigi.Task):
                             'assembly_o',
                             "regular_quast",
                             str(self.sample_name))
-        return [luigi.LocalTarget(os.path.join(odir, "report.html"))]
+        return luigi.LocalTarget(os.path.join(odir,
+                                              "report.html"))
 
     def run(self):
         if self.other_info is not None:
@@ -239,7 +252,7 @@ class prokka(luigi.Task):
     def requires(self):
         if not self.R2:
             return
-        elif not self.R2:
+        elif self.R2:
             return shovill(R1=self.R1,
                            R2=self.R2,
                            odir=self.odir,
@@ -256,9 +269,23 @@ class prokka(luigi.Task):
 
     def run(self):
         if not self.R2:
-            prokka_in_file = self.R1
-        elif not self.R2:
+            formatted_file = os.path.join(self.odir,
+                                          "cleandata",
+                                          "%s.fasta" % self.sample_name)
+            if not os.path.islink(formatted_file):
+                os.makedirs(os.path.dirname(formatted_file),
+                            exist_ok=True)
+            else:
+                os.remove(formatted_file)
+            run_cmd("ln -s '{ori}' {new}".format(ori=self.R1,
+                                                 new=formatted_file),
+                    dry_run=self.dry_run,
+                    log_file=log_file_stream)
+            prokka_in_file = formatted_file
+        elif self.R2:
             prokka_in_file = self.input().path
+        else:
+            raise Exception
         run_prokka(infile=prokka_in_file,
                    odir=os.path.dirname(self.output().path),
                    dry_run=self.dry_run,
@@ -327,7 +354,7 @@ class pandoo(luigi.Task):
 
     def output(self):
         odir = os.path.join(self.odir, "pandoo_o")
-        ofile = os.path.join(odir, "isolates_metadataAll.csv")
+        ofile = os.path.join(odir, "pandoo_input_metadataAll.csv")
         return luigi.LocalTarget(ofile)
 
     def run(self):
@@ -340,13 +367,19 @@ class pandoo(luigi.Task):
                                                           ]], index=[sn]))
         for idx in range(len(self.SE_data)):
             sn, _R1 = self.SE_data[idx]
-            formatted_name = os.path.join(self.odir,
+            formatted_file = os.path.join(self.odir,
                                           "cleandata",
                                           "%s.fasta" % sn)
-            if not os.path.isfile(formatted_name):
-                os.system("ln -s {ori} {new}".format(ori=_R1,
-                                                     new=formatted_name))
-            inpth = formatted_name
+            if not os.path.islink(formatted_file):
+                os.makedirs(os.path.dirname(formatted_file),
+                            exist_ok=True)
+            else:
+                os.remove(formatted_file)
+            run_cmd("ln -s '{ori}' {new}".format(ori=_R1,
+                                                 new=formatted_file),
+                    dry_run=self.dry_run,
+                    log_file=log_file_stream)
+            inpth = formatted_file
             pandoo_tab = pandoo_tab.append(pd.DataFrame([[inpth,
                                                           '',
                                                           '',
@@ -416,22 +449,34 @@ class ISEscan(luigi.Task):
                            status='regular')
 
     def output(self):
+        if not self.R2:
+            final_name = "%s.fasta.gff" % self.sample_name
+        elif self.R2:
+            final_name = 'contigs.fa.gff'
+        else:
+            raise Exception
         ofile = os.path.join(str(self.odir),
-                         "ISscan_result",
-                         str(self.sample_name),
-                         'contigs.fa.gff')
+                             "ISscan_result",
+                             str(self.sample_name),
+                             final_name)
 
         return luigi.LocalTarget(ofile)
 
     def run(self):
         if not self.R2:
-            formatted_name = os.path.join(self.odir,
+            formatted_file = os.path.join(self.odir,
                                           "cleandata",
                                           "%s.fasta" % self.sample_name)
-            if not os.path.isfile(formatted_name):
-                os.system("ln -s '{ori}' {new}".format(ori=self.R1,
-                                                     new=formatted_name))
-            infile_pth = formatted_name
+            if not os.path.islink(formatted_file):
+                os.makedirs(os.path.dirname(formatted_file),
+                            exist_ok=True)
+            else:
+                os.remove(formatted_file)
+            run_cmd("ln -s '{ori}' {new}".format(ori=self.R1,
+                                                 new=formatted_file),
+                    dry_run=self.dry_run,
+                    log_file=log_file_stream)
+            infile_pth = formatted_file
         elif self.R2:
             infile_pth = self.input().path
         else:
@@ -482,11 +527,12 @@ class ISEscan_summary(luigi.Task):
         required_tasks["roary"] = roary(PE_data=self.PE_data,
                                         odir=self.odir,
                                         dry_run=self.dry_run)
-        # todo: SE data may go wrong, because of the name of directory is unknown.
+        # fixed... "Self adjusted ISEscan" would work.....
         return required_tasks
 
     def output(self):
-        ofile = os.path.join(str(self.odir),
+        odir = os.path.dirname(os.path.dirname(self.input()["IS_scan"][0].path))
+        ofile = os.path.join(odir,
                              'IS_result.sum')
 
         return luigi.LocalTarget(ofile)
@@ -603,7 +649,14 @@ class workflow(luigi.Task):
             log_file = os.path.join(str(self.odir), "pipelines.log")
         else:
             log_file = os.path.abspath(self.odir)
-        log_file_stream = open(log_file, 'w')
+
+        log_file_stream = None
+        if os.path.isfile(log_file):
+            if os.path.getsize(log_file) == 0:
+                log_file_stream = open(log_file, 'a')
+        if log_file_stream is None:
+            log_file_stream = open(log_file, 'w')
+
 
         require_tasks.append(multiqc(PE_data=pairreads,
                                      status='before',
@@ -650,7 +703,7 @@ if __name__ == '__main__':
     #             workers=5,
     #             local_scheduler=True
     #             )
-    log_file_stream.close()
+    # log_file_stream.close()
     # python -m luigi --module pipelines.luigi_pipelines workflow --tab /home/liaoth/project/genome_pipelines/pipelines/test/test_input.tab --odir /home/liaoth/project/genome_pipelines/pipelines/test/test_luigi  --parallel-scheduling --workers 12
     # local cmd
 
