@@ -229,12 +229,15 @@ class prokka(luigi.Task):
     sample_name = luigi.Parameter()
 
     def requires(self):
-        return shovill(R1=self.R1,
-                       R2=self.R2,
-                       odir=self.odir,
-                       dry_run=self.dry_run,
-                       sample_name=self.sample_name,
-                       status='regular')
+        if not self.R2:
+            return
+        else:
+            return shovill(R1=self.R1,
+                           R2=self.R2,
+                           odir=self.odir,
+                           dry_run=self.dry_run,
+                           sample_name=self.sample_name,
+                           status='regular')
 
     def output(self):
         odir = os.path.join(self.odir,
@@ -244,8 +247,11 @@ class prokka(luigi.Task):
                                               str(self.sample_name) + '.gff'))
 
     def run(self):
-        prokka_in_file = self.input().path
-        run_prokka(infile=prokka_in_file.replace('.fasta', '.fa'),
+        if not self.R2:
+            prokka_in_file = self.input().path.replace('.fasta', '.fa')
+        else:
+            prokka_in_file = self.R1
+        run_prokka(infile=prokka_in_file,
                    odir=os.path.dirname(self.output().path),
                    dry_run=self.dry_run,
                    log_file=log_file_stream)
@@ -380,12 +386,11 @@ class ISEscan(luigi.Task):
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter()
     sample_name = luigi.Parameter()
-    status = luigi.Parameter()
 
     def requires(self):
-        if self.status == 'SE':
+        if not self.R2:
             return
-        elif self.status == 'PE':
+        elif self.R2:
             return shovill(R1=self.R1,
                            R2=self.R2,
                            sample_name=self.sample_name,
@@ -397,15 +402,15 @@ class ISEscan(luigi.Task):
         ofile = os.path.join(str(self.odir),
                              "ISscan_result",
                              str(self.sample_name),
-                             'contigs.fasta.gff')
+                             'contigs.fa.gff')
 
         return luigi.LocalTarget(ofile)
 
     def run(self):
-        if self.status == 'SE':
+        if not self.R2:
             infile_pth = self.R1
-        elif self.status == 'PE':
-            infile_pth = self.input().path
+        elif self.R2:
+            infile_pth = self.input().path.replace('.fasta', '.fa')
         else:
             raise Exception
         run_ISEscan(infile=infile_pth,
@@ -422,6 +427,7 @@ class ISEscan_summary(luigi.Task):
 
     def requires(self):
         required_tasks = {"IS_scan": [],
+                          "prokka": [],
                           "roary": '',
                           "abricate": ''}
         required_tasks["IS_scan"] += [ISEscan(R1=_R1,
@@ -429,14 +435,22 @@ class ISEscan_summary(luigi.Task):
                                               sample_name=sn,
                                               odir=self.odir,
                                               dry_run=self.dry_run,
-                                              status='PE'
                                               ) for sn, _R1, _R2 in self.PE_data]
         required_tasks["IS_scan"] += [ISEscan(R1=_R1,
                                               R2='',
                                               sample_name=sn,
                                               odir=self.odir,
-                                              dry_run=self.dry_run,
-                                              status="SE") for sn, _R1 in self.SE_data]
+                                              dry_run=self.dry_run) for sn, _R1 in self.SE_data]
+        required_tasks["prokka"] += [prokka(R1=_R1,
+                                            R2=_R2,
+                                            sample_name=sn,
+                                            odir=self.odir,
+                                            dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
+        required_tasks["prokka"] += [prokka(R1=_R1,
+                                            R2='',
+                                            sample_name=sn,
+                                            odir=self.odir,
+                                            dry_run=self.dry_run) for sn, _R1 in self.SE_data]
         required_tasks["abricate"] = abricate(PE_data=self.PE_data,
                                               odir=self.odir,
                                               dry_run=self.dry_run)
@@ -453,18 +467,25 @@ class ISEscan_summary(luigi.Task):
         return luigi.LocalTarget(ofile)
 
     def run(self):
-        from toolkit.process_IS import batch_get,get_locus2group
+        total_samples = [sn for sn, _R1, _R2 in self.PE_data] + \
+                        [sn for sn, _R1 in self.SE_data]
+        from toolkit.process_IS import get_IS_CDS, get_locus2group
         roary_dir = os.path.dirname(self.input()["roary"][0].path)
         locus2group = get_locus2group(roary_dir)
 
         abricate_file = self.input()["abricate"].path
-        locus2annotate_df = pd.read_csv(abricate_file, sep='\t', index_col=0)
-        locus2annotate = dict(zip(locus2annotate_df.index, locus2annotate_df.loc[:, 'gene']))
-
-        final_r = batch_get(prokka_dir=os.path.join(str(self.odir), "prokka_o"),
-                            IS_files=[gff.path for gff in self.input()],
-                            locus2group=locus2group,
-                            locus2annotate=locus2annotate)
+        locus2annotate_df = pd.read_csv(abricate_file, sep=',', index_col=0)
+        locus2annotate = dict(zip(locus2annotate_df.index,
+                                  locus2annotate_df.loc[:, 'gene']))
+        final_r = {}
+        for IS_gff, ori_gff, sample_name in zip(self.input()["IS_scan"],
+                                                self.input()["prokka"],
+                                                total_samples
+                                                ):
+            ori_gff = ori_gff.path
+            IS_gff = IS_gff.path
+            IS2CDS, IS2INFO = get_IS_CDS(ori_gff, IS_gff, locus2annotate, locus2group)
+            final_r[sample_name] = (IS2CDS, IS2INFO)
         # {sample: ({IS_id: [group1,group2]},
         #           {IS_id: IS_info_dict})
         ready2df = {sn: {ISgroup: ISgroups.count(ISgroup)

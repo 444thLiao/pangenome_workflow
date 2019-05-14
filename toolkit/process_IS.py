@@ -1,12 +1,15 @@
-from collections import defaultdict
-from toolkit.get_gene_info import get_gff
-from glob import glob
 import os
-from tqdm import tqdm
-import pandas as pd
-from toolkit.utils import get_locus2group,get_fasta_by_ID
+from collections import defaultdict
+from glob import glob
 
-def get_IS_CDS(ori_gff,IS_gff,locus2annotate,locus2group):
+import pandas as pd
+from tqdm import tqdm
+
+from toolkit.get_gene_info import get_gff
+from toolkit.utils import get_locus2group
+
+
+def get_IS_CDS(ori_gff, IS_gff, locus2annotate, locus2group):
     IS_gff_info = get_gff(IS_gff)
 
     gff_info = get_gff(ori_gff)
@@ -28,27 +31,28 @@ def get_IS_CDS(ori_gff,IS_gff,locus2annotate,locus2group):
                 if locus_id in locus2annotate.keys():
                     group = locus2annotate[locus_id]
                 else:
-                    group = locus2group.get(locus_id,'unknown')
+                    group = locus2group.get(locus_id, 'unknown')
                 if group != 'unknown':
                     notis_gene.append(group)
         if notis_gene:
             IS2CDS[IS_id] = notis_gene
             IS2INFO[IS_id].update(IS.attributes)
-    return IS2CDS,IS2INFO
+    return IS2CDS, IS2INFO
 
 
-def batch_get(prokka_dir,IS_files,locus2annotate,locus2group):
+def batch_get(prokka_dir, IS_pattern, locus2annotate, locus2group):
     final_r = {}
-    for ori_gff in tqdm(glob(os.path.join(prokka_dir,'*','*.gff'))):
+    for ori_gff in tqdm(glob(os.path.join(prokka_dir, '*', '*.gff'))):
         sn = os.path.basename(ori_gff).split('.')[0]
         # ISgff = os.path.join(IS_dir,'%s.gff' % sn)
-        ISgff = IS_files[::]
+        ISgff = IS_pattern.format(sample_name=sn)
         if not os.path.isfile(ISgff):
             continue
-        IS2CDS, IS2INFO = get_IS_CDS(ori_gff, ISgff,locus2annotate,locus2group)
-        final_r[sn] = (IS2CDS,IS2INFO)
+        IS2CDS, IS2INFO = get_IS_CDS(ori_gff, ISgff, locus2annotate, locus2group)
+        final_r[sn] = (IS2CDS, IS2INFO)
     # sample name: (IS2CDS,IS2INFO)
     return final_r
+
 
 if __name__ == '__main__':
     import argparse
