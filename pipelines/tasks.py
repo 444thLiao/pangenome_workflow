@@ -144,7 +144,7 @@ def run_shovill(R1, R2, odir,
                              depth=depth,
                              thread=thread,
                              ram=ram)
-    cmd = ' '.join([cmd, extra_option, extra_str, ])
+    cmd = ' '.join([cmd, extra_option, extra_str])
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 
@@ -173,7 +173,8 @@ def run_roary(indir, odir,
         gff_pattern = os.path.join(indir, '*', '*.gff')
     if not dry_run:
         valid_path(gff_pattern, check_glob=True)
-    valid_path(odir, check_odir=True)
+    valid_path(os.path.dirname(odir), check_odir=True)
+    # roary would not overwrite existing directory... so we don't create it directly, we just check the parent directory.
     cmd = roary_cmd.format(exe_path=roary_path,
                            thread=thread,
                            odir=odir,
@@ -271,18 +272,18 @@ def run_quast(contig,
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 
-def run_ISEscan(in_files,
+def run_ISEscan(infile,
                 odir,
                 dry_run=False,
                 log_file=None):
-    tmp_list_file = os.path.join('/tmp', randomString(5) + '.list')
+
     if not dry_run:
-        valid_path(in_files, check_size=True)
+        valid_path(infile, check_size=True)
     valid_path(odir, check_odir=True)
-    with open(tmp_list_file, 'w') as f1:
-        f1.write('\n'.join(in_files))
     cmd = isescan_cmd.format(exe_path=ISEscan_path,
-                             in_list=tmp_list_file,
+                             infile=infile,
+                             proteome_dir=os.path.join(odir, "proteome"),
+                             hmm_dir=os.path.join(odir, "hmm"),
                              odir=odir)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 

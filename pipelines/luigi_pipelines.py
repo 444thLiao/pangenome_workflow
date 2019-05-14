@@ -135,7 +135,8 @@ class quast(luigi.Task):
                         R2=self.R2,
                         odir=self.odir,
                         dry_run=self.dry_run,
-                        sample_name=self.sample_name),
+                        sample_name=self.sample_name,
+                        status="regular"),
 
                 trimmomatic(R1=self.R1,
                             R2=self.R2,
@@ -176,7 +177,7 @@ class shovill(luigi.Task):
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter()
     sample_name = luigi.Parameter()
-    status = luigi.Parameter(default=None)
+    status = luigi.Parameter()
 
     def requires(self):
         return trimmomatic(R1=self.R1,
@@ -187,10 +188,11 @@ class shovill(luigi.Task):
 
     def output(self):
         if self.status == 'plasmid':
+            dirname = "plasmidsSpades"
+        elif self.status == 'regular':
             dirname = "regular"
         else:
-            dirname = "plasmidsSpades"
-
+            raise Exception
         odir = os.path.join(self.odir,
                             "assembly_o",
                             dirname,
@@ -198,16 +200,19 @@ class shovill(luigi.Task):
         return luigi.LocalTarget(os.path.join(odir, "contigs.fasta"))
 
     def run(self):
+
         if self.status == 'plasmid':
             spades_extra_options = '--plasmid'
             extra_option = "--nocorr"
-        else:
+        elif self.status == 'regular':
             spades_extra_options = None
             extra_option = ''
+        else:
+            raise Exception
         run_shovill(R1=self.input()[0].path,
                     R2=self.input()[1].path,
                     odir=os.path.dirname(self.output().path),
-                    thread=1,  # todo
+                    thread=0,  # todo
                     ram=2,  # todo
                     spades_extra_options=spades_extra_options,
                     extra_option=extra_option,
@@ -228,7 +233,8 @@ class prokka(luigi.Task):
                        R2=self.R2,
                        odir=self.odir,
                        dry_run=self.dry_run,
-                       sample_name=self.sample_name, )
+                       sample_name=self.sample_name,
+                       status='regular')
 
     def output(self):
         odir = os.path.join(self.odir,
@@ -302,7 +308,8 @@ class pandoo(luigi.Task):
                         R2=_R2,
                         sample_name=sn,
                         odir=self.odir,
-                        dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
+                        dry_run=self.dry_run,
+                        status='regular') for sn, _R1, _R2 in self.PE_data]
 
     def output(self):
         odir = os.path.join(self.odir, "pandoo_o")
@@ -368,30 +375,110 @@ class abricate(luigi.Task):
 
 
 class ISEscan(luigi.Task):
-    PE_data = luigi.TupleParameter()
+    R1 = luigi.Parameter()
+    R2 = luigi.Parameter()
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter()
+    sample_name = luigi.Parameter()
+    status = luigi.Parameter()
 
     def requires(self):
-        return [shovill(R1=_R1,
-                        R2=_R2,
-                        sample_name=sn,
-                        odir=self.odir,
-                        dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
+        if self.status == 'SE':
+            return
+        elif self.status == 'PE':
+            return shovill(R1=self.R1,
+                           R2=self.R2,
+                           sample_name=self.sample_name,
+                           odir=self.odir,
+                           dry_run=self.dry_run,
+                           status='regular')
 
     def output(self):
-        odir = os.path.join(self.odir, 'ISscan_result')
-        return luigi.LocalTarget(os.path.join(odir, "ISscan_result.sum"))
+        ofile = os.path.join(str(self.odir),
+                             "ISscan_result",
+                             str(self.sample_name),
+                             'contigs.fasta.gff')
+
+        return luigi.LocalTarget(ofile)
 
     def run(self):
-        run_ISEscan(in_files=[_.path for _ in self.input()],
-                    odir=os.path.dirname(self.output().path),
+        if self.status == 'SE':
+            infile_pth = self.R1
+        elif self.status == 'PE':
+            infile_pth = self.input().path
+        else:
+            raise Exception
+        run_ISEscan(infile=infile_pth,
+                    odir=os.path.dirname(os.path.dirname(self.output().path)),
                     dry_run=self.dry_run,
                     log_file=log_file_stream)
 
 
+class ISEscan_summary(luigi.Task):
+    PE_data = luigi.TupleParameter()
+    SE_data = luigi.TupleParameter()
+    odir = luigi.Parameter()
+    dry_run = luigi.BoolParameter()
+
+    def requires(self):
+        required_tasks = {"IS_scan": [],
+                          "roary": '',
+                          "abricate": ''}
+        required_tasks["IS_scan"] += [ISEscan(R1=_R1,
+                                              R2=_R2,
+                                              sample_name=sn,
+                                              odir=self.odir,
+                                              dry_run=self.dry_run,
+                                              status='PE'
+                                              ) for sn, _R1, _R2 in self.PE_data]
+        required_tasks["IS_scan"] += [ISEscan(R1=_R1,
+                                              R2='',
+                                              sample_name=sn,
+                                              odir=self.odir,
+                                              dry_run=self.dry_run,
+                                              status="SE") for sn, _R1 in self.SE_data]
+        required_tasks["abricate"] = abricate(PE_data=self.PE_data,
+                                              odir=self.odir,
+                                              dry_run=self.dry_run)
+        required_tasks["roary"] = roary(PE_data=self.PE_data,
+                                        odir=self.odir,
+                                        dry_run=self.dry_run)
+        # todo: SE data may go wrong, because of the name of directory is unknown.
+        return required_tasks
+
+    def output(self):
+        ofile = os.path.join(str(self.odir),
+                             'IS_result.sum')
+
+        return luigi.LocalTarget(ofile)
+
+    def run(self):
+        from toolkit.process_IS import batch_get,get_locus2group
+        roary_dir = os.path.dirname(self.input()["roary"][0].path)
+        locus2group = get_locus2group(roary_dir)
+
+        abricate_file = self.input()["abricate"].path
+        locus2annotate_df = pd.read_csv(abricate_file, sep='\t', index_col=0)
+        locus2annotate = dict(zip(locus2annotate_df.index, locus2annotate_df.loc[:, 'gene']))
+
+        final_r = batch_get(prokka_dir=os.path.join(str(self.odir), "prokka_o"),
+                            IS_files=[gff.path for gff in self.input()],
+                            locus2group=locus2group,
+                            locus2annotate=locus2annotate)
+        # {sample: ({IS_id: [group1,group2]},
+        #           {IS_id: IS_info_dict})
+        ready2df = {sn: {ISgroup: ISgroups.count(ISgroup)
+                         for ISgroups in info[0].values()
+                         for ISgroup in ISgroups}
+                    for sn, info in final_r.items()}
+        result_df = pd.DataFrame.from_dict(ready2df, orient='index')
+        result_df = result_df.fillna(0)
+        result_df.to_csv(self.output().path, sep=',', index=1)
+
+
 class detect_plasmid(luigi.Task):
     PE_data = luigi.TupleParameter()
+    SE_data = luigi.TupleParameter()
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter()
 
@@ -401,7 +488,8 @@ class detect_plasmid(luigi.Task):
                                    R2=_R2,
                                    sample_name=sn,
                                    odir=self.odir,
-                                   dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
+                                   dry_run=self.dry_run,
+                                   status="regular") for sn, _R1, _R2 in self.PE_data]
         required_tasks += [shovill(R1=_R1,
                                    R2=_R2,
                                    sample_name=sn,
@@ -411,13 +499,15 @@ class detect_plasmid(luigi.Task):
         return required_tasks
 
     def output(self):
-        return os.path.join(self.odir, "plasmid_summary.csv")
+        return luigi.LocalTarget(os.path.join(str(self.odir),
+                                              "plasmid_summary",
+                                              "plasmid_summary.csv"))
 
     def run(self):
-        run_plasmid_detect(indir=os.path.join(self.odir, "assembly_o"),
-                           roary_dir=os.path.join(self.odir, "all_roary_o"),
-                           prokka_dir=os.path.join(self.odir, "prokka_o"),
-                           odir=os.path.join(self.odir, "plasmid_summary"),
+        run_plasmid_detect(indir=os.path.join(str(self.odir), "assembly_o"),
+                           roary_dir=os.path.join(str(self.odir), "all_roary_o"),
+                           prokka_dir=os.path.join(str(self.odir), "prokka_o"),
+                           odir=os.path.join(str(self.odir), "plasmid_summary"),
                            dry_run=self.dry_run,
                            log_file=log_file_stream)
 
@@ -451,7 +541,7 @@ class workflow(luigi.Task):
             other_info = None
         global log_file_stream
         if self.log_file is None:
-            log_file = os.path.join(self.odir, "pipelines.log")
+            log_file = os.path.join(str(self.odir), "pipelines.log")
         else:
             log_file = os.path.abspath(self.odir)
         log_file_stream = open(log_file, 'w')
@@ -478,9 +568,10 @@ class workflow(luigi.Task):
         require_tasks.append(fasttree(PE_data=pairreads,
                                       odir=self.odir,
                                       dry_run=self.dry_run))
-        require_tasks.append(ISEscan(PE_data=pairreads,
-                                     odir=self.odir,
-                                     dry_run=self.dry_run))
+        require_tasks.append(ISEscan_summary(PE_data=pairreads,
+                                             SE_data=singlereads,
+                                             odir=self.odir,
+                                             dry_run=self.dry_run))
         require_tasks.append(pandoo(PE_data=pairreads,
                                     SE_data=singlereads,
                                     odir=self.odir,
@@ -494,11 +585,14 @@ class workflow(luigi.Task):
 
 
 if __name__ == '__main__':
-    # luigi.run()
-    luigi.build([workflow(tab="/home/liaoth/project/genome_pipelines/pipelines/test/test_input.tab",
-                          odir="/home/liaoth/project/genome_pipelines/pipelines/test/test_luigi",
-                          dry_run=False)],
-                workers=5,
-                )
+    luigi.run()
+    # luigi.build([workflow(tab="/home/liaoth/project/genome_pipelines/pipelines/test/test_input.tab",
+    #                       odir="/home/liaoth/project/genome_pipelines/pipelines/test/test_luigi",
+    #                       dry_run=False)],
+    #             workers=5,
+    #             local_scheduler=True
+    #             )
     log_file_stream.close()
-    # python -m luigi --module luigi_pipelines workflow --tab /home/liaoth/project/genome_pipelines/pipelines/test/test_input.tab --odir /home/liaoth/project/genome_pipelines/pipelines/test/test_luigi --dry_run --parallel-scheduling --workers 12 --local-scheduler
+    # python -m luigi --module pipelines.luigi_pipelines workflow --tab /home/liaoth/project/genome_pipelines/pipelines/test/test_input.tab --odir /home/liaoth/project/genome_pipelines/pipelines/test/test_luigi  --parallel-scheduling --workers 12
+
+    # python -m luigi --module pipelines.luigi_pipelines workflow --tab /home/liaoth/tools/genome_pipelines/pipelines/test/test_input.tab --odir /home/liaoth/tools/genome_pipelines/pipelines/test/test_luigi  --parallel-scheduling --workers 12

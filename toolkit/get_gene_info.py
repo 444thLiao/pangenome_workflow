@@ -16,7 +16,8 @@ def clean_db(tab,prokka_dir):
 def get_gff(gff_fn):
     dbfn = os.path.join(tmp_dir, os.path.basename(gff_fn).rsplit('.',1)[0])
     if os.path.isfile(dbfn):
-        fn = gffutils.FeatureDB(dbfn, keep_order=True)
+        os.remove(dbfn)
+        fn = gffutils.create_db(gff_fn, dbfn=dbfn,merge_strategy='merge')
     else:
         fn = gffutils.create_db(gff_fn, dbfn=dbfn,merge_strategy='merge')
     return fn

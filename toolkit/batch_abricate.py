@@ -8,6 +8,8 @@ import pandas as pd
 from Bio import SeqIO
 from tqdm import tqdm
 
+import sys
+sys.path.insert(0,os.path.dirname(os.path.dirname(__file__)))
 from toolkit.utils import get_locus2group, run_cmd, valid_path
 
 
@@ -27,6 +29,7 @@ def run_abricate(prokka_dir,
         for db in ['card', 'argannot', 'ncbi', 'vfdb', 'vfdb_full', 'resfinder', 'plasmidfinder', 'victors']:
             cmd = "{exe_path} {infile} --threads {thread} --db {db} --mincov {mincov} --quiet> {ofile}"
             ofile = os.path.join(odir, sample_name, 'abricate_{db}.tab'.format(db=db))
+            valid_path(os.path.dirname(ofile), check_odir=True)
             new_cmd = cmd.format(infile=ffn_pth,
                                  db=db,
                                  exe_path=exe_path,

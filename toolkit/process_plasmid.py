@@ -13,7 +13,7 @@ if __name__ == "__main__" and __package__ is None:
     sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from toolkit.utils import run_cmd, get_locus2group, get_length_fasta
-from toolkit.get_gene_info import get_gene_with_regin
+from toolkit.get_gene_info import get_gene_with_regin,clean_db
 
 
 def get_plasmids(indir):
@@ -37,7 +37,7 @@ def get_plasmids(indir):
             plasmid_count_dict = defaultdict(list)
             for p, c in zip(match_plasmid_row,
                             match_contig_row):
-                num_p = re.findall("component_[0-9]+_pilon$", p)[0]  # get plasmids num/ID
+                num_p = re.findall("component_([0-9]+)$", p)[0]  # get plasmids num/ID
                 plasmid_count_dict[num_p].append(c)
             sample_name = os.path.basename(os.path.dirname(contig))
             result_dict[sample_name] = plasmid_count_dict
@@ -45,20 +45,21 @@ def get_plasmids(indir):
 
 
 def get_gene_in_plasmids(plasmids_dict, locus2group, prokka_dir):
-    plasmids_genes = defaultdict(dict)
+    plasmids_genes = {}
     for sn, p2contig in plasmids_dict.items():
-        all_plasmid_r = [region for _v in p2contig.values() for region in _v]
+        plasmids_genes[sn] = {}
+        all_plasmid_r = [plasmid for plasmids in p2contig.values() for plasmid in plasmids]
         gff_p = os.path.join(prokka_dir, "{sn}/{sn}.gff")
         if not os.path.isfile(gff_p.format(sn=sn)):
             gff_p = os.path.join(prokka_dir, "{sn}.gff")
         if not os.path.isfile(gff_p.format(sn=sn)):
             raise Exception("weird prokka input")
-        all_genes = get_gene_with_regin(gff_p.format(sn=sn),
-                                        all_plasmid_r)
+        all_genes = get_gene_with_regin(gff_p.format(sn=sn),all_plasmid_r)
         for g in all_genes:
             g = locus2group.get(g, 'removed')  # todo: process these lost genes
             if g != 'removed':
                 plasmids_genes[sn][g] = 1
+
     return plasmids_genes
 
 
@@ -68,6 +69,10 @@ def main(indir, roary_dir, prokka_dir, odir):
     plasmids_genes = get_gene_in_plasmids(plasmids_dict,
                                           locus2group,
                                           prokka_dir)
+    samples_name = [os.path.basename(_) for _ in glob(os.path.join(prokka_dir,'*')) if os.path.isdir(_)]
+    if not samples_name:
+        samples_name = [os.path.basename(_).split('.gff')[0] for _ in glob(os.path.join(prokka_dir, '*.gff'))]
+
     summary_df = pd.DataFrame(
         columns=['total contigs',
                  'total CDS',
@@ -76,27 +81,32 @@ def main(indir, roary_dir, prokka_dir, odir):
                  'CDS belong to plasmid',
                  'total length of plasmids',
                  'ratio of plasmid'])
-    for sample_name in plasmids_genes.keys():
+    for sample_name in samples_name:
         contig_pth = os.path.join(indir, 'regular', sample_name, 'contigs.fa')
         num_contigs = int(check_output("grep -c '^>' %s " % contig_pth, shell=True))
         length_contigs = sum(get_length_fasta(contig_pth).values())
+        # two different way to parse prokka output gff.
         gff_p = os.path.join(prokka_dir, "{sn}/{sn}.gff")
         if not os.path.isfile(gff_p.format(sn=sample_name)):
             gff_p = os.path.join(prokka_dir, "{sn}.gff")
         if not os.path.isfile(gff_p.format(sn=sample_name)):
             raise Exception("weird prokka input")
+
         gff_pth = gff_p.format(sn=sample_name)
         num_CDS = int(check_output("grep -c 'CDS' %s " % gff_pth, shell=True))
         plasmidcontig_pth = os.path.join(indir, 'plasmidsSpades', sample_name, 'contigs.fa')
-        length_plasmidscontigs = sum(get_length_fasta(plasmidcontig_pth).values())
-        num_contigs4plasmid = sum([len(_) for _ in plasmids_dict[sample_name].values()])
+        if os.path.getsize(plasmidcontig_pth) == 0:
+            length_plasmidscontigs = num_contigs4plasmid = 0
+        else:
+            length_plasmidscontigs = sum(get_length_fasta(plasmidcontig_pth).values())
+            num_contigs4plasmid = sum([len(_) for _ in plasmids_dict[sample_name].values()])
         _sub_df = pd.DataFrame(columns=summary_df.columns,
                                index=[sample_name],
                                data=[[num_contigs,
                                       num_CDS,
                                       length_contigs,
                                       num_contigs4plasmid,
-                                      len(plasmids_genes[sample_name]),
+                                      len(plasmids_genes.get(sample_name,[])),
                                       length_plasmidscontigs,
                                       length_plasmidscontigs / length_contigs
                                       ]])

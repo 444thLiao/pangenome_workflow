@@ -4,4 +4,8 @@
 
 conda install -c bioconda -n pangenome_pipelines shovill perl-bioperl
 conda install -c conda-forge -n pangenome_pipelines prokka ncurses
-pip install tqdm luigi pandas biopython fastcluster
+pip install tqdm luigi pandas biopython fastcluster gffutils ariba pandoo ruffus sistr-cmd git+https://github.com/MDU-PHL/ngmaster.git git+https://github.com/MDU-PHL/meningotype.git
+
+cpanm -i Moo
+cpanm -i List::MoreUtils
+cpanm -i Bio::Perl

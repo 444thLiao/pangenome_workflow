@@ -6,6 +6,7 @@ from tqdm import tqdm
 import pandas as pd
 from toolkit.utils import get_locus2group,get_fasta_by_ID
 
+
 locus2group = get_locus2group('/home/liaoth/data2/project/shenzhen_Acinetobacter/64_roary_o')
 
 locus2annotate_df = pd.read_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/all_65_annotated_locus2annotate.tab",sep='\t',index_col=0)
