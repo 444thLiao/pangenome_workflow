@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 from collections import defaultdict
 from glob import glob
 from subprocess import check_output
@@ -7,22 +8,25 @@ from subprocess import check_output
 import pandas as pd
 from tqdm import tqdm
 
-if __name__ == "__main__" and __package__ is None:
-    import sys
-
-    sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from toolkit.utils import run_cmd, get_locus2group, get_length_fasta
-from toolkit.get_gene_info import get_gene_with_regin,clean_db
+from toolkit.get_gene_info import get_gene_with_regin
 
 
 def get_plasmids(indir):
     """ indir may end with assembly_o"""
     result_dict = {}
-    for contig in tqdm(glob(os.path.join(indir, 'regular', '*', 'contigs.fa'))):
+    for contig in tqdm(glob(os.path.join(indir,
+                                         'regular',
+                                         '*',
+                                         'contigs.fa'))):
         run_cmd("bwa index %s" % contig, dry_run=False)
-        plasmid_contig = contig.replace('/regular/', '/plasmidsSpades/') + 'sta'
+        plasmid_contig = contig.replace('/regular/',
+                                        '/plasmidsSpades/') + 'sta'
         # regular is 'contigs.fa', plasmids must is 'contigs.fasta'
+        if not os.path.isfile(plasmid_contig):
+            # it may the SE data, so it should not process plasmid
+            continue
         if os.path.getsize(plasmid_contig) > 0:
             result = check_output("bwa mem -x intractg {regular_one} {plasmid_one}".format(regular_one=contig,
                                                                                            plasmid_one=plasmid_contig),
@@ -32,12 +36,14 @@ def get_plasmids(indir):
             result = [_ for _ in result.split('\n') if not _.startswith('@') and _]
             match_plasmid_row = [row.split('\t')[0] for row in result]
             match_contig_row = [row.split('\t')[2] for row in result]
-            match_leftmost_pos = [row.split('\t')[2] for row in result]  # 1-coordinate
+            match_leftmost_pos = [row.split('\t')[2] for row in result]
+            # 1-coordinate
 
             plasmid_count_dict = defaultdict(list)
             for p, c in zip(match_plasmid_row,
                             match_contig_row):
-                num_p = re.findall("component_([0-9]+)$", p)[0]  # get plasmids num/ID
+                num_p = re.findall("component_([0-9]+)$",
+                                   p)[0]  # get plasmids num/ID
                 plasmid_count_dict[num_p].append(c)
             sample_name = os.path.basename(os.path.dirname(contig))
             result_dict[sample_name] = plasmid_count_dict
@@ -54,9 +60,10 @@ def get_gene_in_plasmids(plasmids_dict, locus2group, prokka_dir):
             gff_p = os.path.join(prokka_dir, "{sn}.gff")
         if not os.path.isfile(gff_p.format(sn=sn)):
             raise Exception("weird prokka input")
-        all_genes = get_gene_with_regin(gff_p.format(sn=sn),all_plasmid_r)
+        all_genes = get_gene_with_regin(gff_p.format(sn=sn), all_plasmid_r)
         for g in all_genes:
-            g = locus2group.get(g, 'removed')  # todo: process these lost genes
+            g = locus2group.get(g, 'removed')
+            # todo: process these lost genes
             if g != 'removed':
                 plasmids_genes[sn][g] = 1
 
@@ -69,9 +76,7 @@ def main(indir, roary_dir, prokka_dir, odir):
     plasmids_genes = get_gene_in_plasmids(plasmids_dict,
                                           locus2group,
                                           prokka_dir)
-    samples_name = [os.path.basename(_) for _ in glob(os.path.join(prokka_dir,'*')) if os.path.isdir(_)]
-    if not samples_name:
-        samples_name = [os.path.basename(_).split('.gff')[0] for _ in glob(os.path.join(prokka_dir, '*.gff'))]
+    samples_name = plasmids_dict.keys()
 
     summary_df = pd.DataFrame(
         columns=['total contigs',
@@ -106,7 +111,7 @@ def main(indir, roary_dir, prokka_dir, odir):
                                       num_CDS,
                                       length_contigs,
                                       num_contigs4plasmid,
-                                      len(plasmids_genes.get(sample_name,[])),
+                                      len(plasmids_genes.get(sample_name, [])),
                                       length_plasmidscontigs,
                                       length_plasmidscontigs / length_contigs
                                       ]])

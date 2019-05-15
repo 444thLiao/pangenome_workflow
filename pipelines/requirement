@@ -2,10 +2,14 @@
 
 -n pangenome_pipelines
 
-conda install -c bioconda -n pangenome_pipelines shovill perl-bioperl
+conda install -c bioconda -n pangenome_pipelines shovill perl-bioperl fastqc cd-hit
 conda install -c conda-forge -n pangenome_pipelines prokka ncurses
-pip install tqdm luigi pandas biopython fastcluster gffutils ariba pandoo ruffus sistr-cmd git+https://github.com/MDU-PHL/ngmaster.git git+https://github.com/MDU-PHL/meningotype.git
+pip install tqdm luigi pandas biopython fastcluster gffutils ariba pandoo ruffus sistr-cmd git+https://github.com/MDU-PHL/ngmaster.git git+https://github.com/MDU-PHL/meningotype.git bcbio-gff psutil
 
 cpanm -i Moo
 cpanm -i List::MoreUtils
 cpanm -i Bio::Perl
+
+
+# fastqc need to install otherwise it will not ouput html
+# cd-hit need to install otherwise it will not find `cd-hit-est` in PATH

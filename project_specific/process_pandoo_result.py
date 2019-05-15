@@ -5,10 +5,12 @@ from glob import glob
 import pandas as pd
 import sys
 sys.path.insert(0,os.path.dirname(os.path.dirname(__file__)))
-from process_mlst import main as process_mlst
+from toolkit.process_mlst import main as process_mlst
 
 
-def get_and_remove(data, match_part, keep_name):
+def get_and_remove(data,
+                   match_part,
+                   keep_name):
     cols = [_ for _ in data.columns if match_part in _ and keep_name not in _]
     data = data.drop(cols, axis=1)
     return data

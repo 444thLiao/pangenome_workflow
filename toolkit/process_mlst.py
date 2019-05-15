@@ -1,7 +1,11 @@
 import os
+import sys
 
 import pandas as pd
 from tqdm import tqdm
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from pipelines.constant_str import mlst_db
 
 
 def extract_gene(g_list):
@@ -102,7 +106,7 @@ def format_ST_dict(sub_df):
     return ST_dict
 
 
-def redefine_mlst(mlst_df: pd.DataFrame, scheme, db='/home/liaoth/tools/mlst/db/pubmlst/'):
+def redefine_mlst(mlst_df: pd.DataFrame, scheme, db=mlst_db):
     db_file = os.path.join(db, scheme, scheme + '.txt')
     ST_df = pd.read_csv(db_file, sep='\t')
     for idx, val in tqdm(mlst_df.iterrows()):
@@ -122,7 +126,7 @@ def redefine_mlst(mlst_df: pd.DataFrame, scheme, db='/home/liaoth/tools/mlst/db/
                 final_ST = 'NEW ST'
             else:
                 final_ST = 'ST%s' % ST
-            mlst_df.loc[idx, '%s_ST.%s' % (scheme_source,(count + 1))] = final_ST
+            mlst_df.loc[idx, '%s_ST.%s' % (scheme_source, (count + 1))] = final_ST
     return mlst_df
 
 
@@ -141,6 +145,22 @@ def main(mlst_df, output_mlst):
     for scheme, _df in scheme_df_dict.items():
         _df.to_csv(output_mlst.format(scheme=scheme), sep=',', index=True)
 
-# todo: make it api
+
 if __name__ == '__main__':
-    pass
+    import argparse
+    from pipelines.tasks import valid_path
+
+    parse = argparse.ArgumentParser()
+    parse.add_argument("-i", "--infile", help='mlst raw output df')
+    parse.add_argument("-o", "--outfile", help='')
+    args = parse.parse_args()
+    mlst_file = args.infile
+    odir = args.outdir
+    valid_path(mlst_file, check_size=1)
+    valid_path(odir, check_odir=1)
+
+    mlst_df = pd.read_csv(mlst_file,
+                          sep=',',
+                          index_col=0)  # todo: auto detect the sep
+    output_mlst = os.path.join(odir, '{scheme}_mlst.csv')
+    # todo: test is it useful for mlst only which without pandoo

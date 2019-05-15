@@ -41,7 +41,8 @@ if __name__ == '__main__':
 
     for dfn in glob("/home/liaoth/data2/project/shenzhen_Acinetobacter/plasmids/*.txt"):
         data = pd.read_csv(dfn, index_col=0, sep='\t')
-        odir = os.path.join(os.path.dirname(dfn), os.path.basename(dfn).split('_plasmids')[0])
+        odir = os.path.join(os.path.dirname(dfn),
+                            os.path.basename(dfn).split('_plasmids')[0])
         os.makedirs(odir, exist_ok=True)
         for idx, vals in tqdm(data.iterrows(), total=data.shape[0]):
             refseq_id = vals["RefSeq"] if vals["RefSeq"] != '-' else vals["INSDC"]

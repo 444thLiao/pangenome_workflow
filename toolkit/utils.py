@@ -37,12 +37,14 @@ def valid_path(in_pth,
                check_size=False,
                check_dir=False,
                check_glob=False,
-               check_odir=False):
+               check_odir=False,
+               check_ofile=False):
     if type(in_pth) == str:
         in_pths = [in_pth]
     else:
         in_pths = in_pth[::]
     for in_pth in in_pths:
+        in_pth = os.path.abspath(os.path.realpath(in_pth))
         if in_pth is None:
             continue
         if check_glob:
@@ -53,11 +55,15 @@ def valid_path(in_pth,
             if not os.path.isdir(in_pth):
                 raise Exception("Error because %s doesn't exist" % in_pth)
         if check_size:
-            if os.path.getsize(in_pth) < 0:
+            if os.path.getsize(in_pth) <= 0:
                 raise Exception("Error because %s does not contain content." % in_pth)
         if check_odir:
             if not os.path.isdir(in_pth):
                 os.makedirs(in_pth, exist_ok=True)
+        if check_ofile:
+            odir_file = os.path.dirname(in_pth)
+            if not os.path.isdir(odir_file):
+                os.makedirs(odir_file, exist_ok=True)
     return True
 
 

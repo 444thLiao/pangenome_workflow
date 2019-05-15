@@ -1,9 +1,8 @@
 import os
 import sys
 from glob import glob
-from multiprocessing import cpu_count
 
-from toolkit.utils import run_cmd, valid_path, randomString, validate_table
+from toolkit.utils import run_cmd, valid_path, validate_table
 from .constant_str import *
 
 

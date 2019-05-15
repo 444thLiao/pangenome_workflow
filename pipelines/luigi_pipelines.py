@@ -4,7 +4,8 @@ import luigi
 import pandas as pd
 
 from pipelines.tasks import *
-
+from pipelines import constant_str as constant
+# give some default parameter
 
 class fastqc(luigi.Task):
     R1 = luigi.Parameter()
@@ -28,11 +29,13 @@ class fastqc(luigi.Task):
     def output(self):
         odir = os.path.join(self.odir, "fastqc_%s" % self.status)
         if self.status == 'before':
-            ofiles = ["%s_fastqc.zip" % os.path.basename(self.R1).rsplit('.', maxsplit=2)[0],
-                      "%s_fastqc.zip" % os.path.basename(self.R2).rsplit('.', maxsplit=2)[0]]
+            ofiles = ["%s_fastqc.zip" % os.path.basename(str(self.R1)).rsplit('.', maxsplit=2)[0],
+                      "%s_fastqc.zip" % os.path.basename(str(self.R2)).rsplit('.', maxsplit=2)[0]]
         elif self.status == 'after':
             ofiles = ["%s_fastqc.zip" % os.path.basename(self.input()[0].path).rsplit('.', maxsplit=2)[0],
                       "%s_fastqc.zip" % os.path.basename(self.input()[1].path).rsplit('.', maxsplit=2)[0], ]
+        else:
+            raise Exception
         # ofiles is a list of ouput of R1 & R2
         return [luigi.LocalTarget(os.path.join(odir, f)) for f in ofiles]
 
@@ -79,7 +82,7 @@ class multiqc(luigi.Task):
         if self.status == 'before' or self.status == 'after':
             indir = os.path.dirname(self.input()[0][0].path)  # any one is ok
         elif self.status == "quast":
-            indir = os.path.dirname(os.path.dirname(self.input()[0].path)) # any one is ok
+            indir = os.path.dirname(os.path.dirname(self.input()[0].path))  # any one is ok
         else:
             raise Exception
         filename = os.path.basename(indir)
@@ -102,6 +105,32 @@ class multiqc(luigi.Task):
                     extra_str=extra_str,
                     dry_run=self.dry_run,
                     log_file=log_file_stream)
+
+
+class preprocess_SE(luigi.Task):
+    R1 = luigi.Parameter()
+    odir = luigi.Parameter()
+    dry_run = luigi.BoolParameter()
+    sample_name = luigi.Parameter()
+
+    def output(self):
+        formatted_file = os.path.join(self.odir,
+                                      "cleandata",
+                                      "%s.fasta" % self.sample_name)
+        return luigi.LocalTarget(formatted_file)
+
+    def run(self):
+        formatted_file = os.path.join(self.odir,
+                                      "cleandata",
+                                      "%s.fasta" % self.sample_name)
+        if not os.path.isfile(self.R1):
+            raise Exception
+        valid_path(os.path.dirname(formatted_file), check_odir=True)
+
+        run_cmd("ln -s '{ori}' {new}".format(ori=self.R1,
+                                             new=self.output().path),
+                dry_run=self.dry_run,
+                log_file=log_file_stream)
 
 
 class trimmomatic(luigi.Task):
@@ -128,7 +157,7 @@ class trimmomatic(luigi.Task):
                         R2=self.R2,
                         odir=os.path.join(self.odir, "cleandata"),
                         sample_name=self.sample_name,
-                        thread=1,  # todo
+                        thread=constant.p_trimmomatic,  # todo: determine the thread
                         dry_run=self.dry_run,
                         log_file=log_file_stream
                         )
@@ -178,8 +207,8 @@ class quast(luigi.Task):
                   R2=self.input()[1][1].path,
                   ref=ref,
                   gff=gff,
-                  odir=os.path.dirname(self.output()[0].path),
-                  thread=1,  # todo
+                  odir=os.path.dirname(self.output().path),
+                  thread=constant.p_quast,  # todo: determine the thread
                   dry_run=self.dry_run,
                   log_file=log_file_stream)
 
@@ -208,7 +237,7 @@ class shovill(luigi.Task):
             ofile = "contigs.fa"
         else:
             raise Exception
-        odir = os.path.join(self.odir,
+        odir = os.path.join(str(self.odir),
                             "assembly_o",
                             dirname,
                             str(self.sample_name))
@@ -221,7 +250,6 @@ class shovill(luigi.Task):
     # regular pipelines need to use .fa(which use contig0000x as formatted name)
 
     def run(self):
-
         if self.status == 'plasmid':
             spades_extra_options = '--plasmid'
             extra_option = "--nocorr"
@@ -233,8 +261,8 @@ class shovill(luigi.Task):
         run_shovill(R1=self.input()[0].path,
                     R2=self.input()[1].path,
                     odir=os.path.dirname(self.output().path),
-                    thread=0,  # todo
-                    ram=2,  # todo
+                    thread=constant.p_shovill,   # todo: determine the thread
+                    ram=constant.ram_shovill,  # todo
                     spades_extra_options=spades_extra_options,
                     extra_option=extra_option,
                     dry_run=self.dry_run,
@@ -251,7 +279,10 @@ class prokka(luigi.Task):
 
     def requires(self):
         if not self.R2:
-            return
+            return preprocess_SE(R1=self.R1,
+                                 odir=self.odir,
+                                 dry_run=self.dry_run,
+                                 sample_name=self.sample_name)
         elif self.R2:
             return shovill(R1=self.R1,
                            R2=self.R2,
@@ -268,24 +299,8 @@ class prokka(luigi.Task):
                                               str(self.sample_name) + '.gff'))
 
     def run(self):
-        if not self.R2:
-            formatted_file = os.path.join(self.odir,
-                                          "cleandata",
-                                          "%s.fasta" % self.sample_name)
-            if not os.path.islink(formatted_file):
-                os.makedirs(os.path.dirname(formatted_file),
-                            exist_ok=True)
-            else:
-                os.remove(formatted_file)
-            run_cmd("ln -s '{ori}' {new}".format(ori=self.R1,
-                                                 new=formatted_file),
-                    dry_run=self.dry_run,
-                    log_file=log_file_stream)
-            prokka_in_file = formatted_file
-        elif self.R2:
-            prokka_in_file = self.input().path
-        else:
-            raise Exception
+        prokka_in_file = self.input().path
+
         run_prokka(infile=prokka_in_file,
                    odir=os.path.dirname(self.output().path),
                    dry_run=self.dry_run,
@@ -312,7 +327,7 @@ class roary(luigi.Task):
     def run(self):
         run_roary(os.path.dirname(os.path.dirname(self.input()[0].path)),
                   os.path.dirname(self.output()[0].path),
-                  thread=7,  # todo
+                  thread=constant.p_roary,   # todo: determine the thread
                   dry_run=self.dry_run,
                   log_file=log_file_stream)
 
@@ -345,51 +360,49 @@ class pandoo(luigi.Task):
     dry_run = luigi.BoolParameter()
 
     def requires(self):
-        return [shovill(R1=_R1,
-                        R2=_R2,
-                        sample_name=sn,
-                        odir=self.odir,
-                        dry_run=self.dry_run,
-                        status='regular') for sn, _R1, _R2 in self.PE_data]
+        required_tasks = {}
+
+        required_tasks["PE"] = [shovill(R1=_R1,
+                                   R2=_R2,
+                                   sample_name=sn,
+                                   odir=self.odir,
+                                   dry_run=self.dry_run,
+                                   status='regular') for sn, _R1, _R2 in self.PE_data]
+        required_tasks["SE"] = [preprocess_SE(R1=_R1,
+                                         odir=self.odir,
+                                         dry_run=self.dry_run,
+                                         sample_name=sn) for sn, _R1 in self.SE_data]
+        return required_tasks
 
     def output(self):
-        odir = os.path.join(self.odir, "pandoo_o")
-        ofile = os.path.join(odir, "pandoo_input_metadataAll.csv")
+        odir = os.path.join(str(self.odir),
+                            "pandoo_o")
+        ofile = os.path.join(odir,
+                             "pandoo_input_metadataAll.csv")
         return luigi.LocalTarget(ofile)
 
     def run(self):
         pandoo_tab = pd.DataFrame()
         for idx in range(len(self.PE_data)):
             sn, _R1, _R2 = self.PE_data[idx]
-            pandoo_tab = pandoo_tab.append(pd.DataFrame([[self.input()[idx].path,
+            contig_pth = self.input()["PE"][idx].path
+            pandoo_tab = pandoo_tab.append(pd.DataFrame([[contig_pth,
                                                           _R1,
                                                           _R2,
                                                           ]], index=[sn]))
         for idx in range(len(self.SE_data)):
             sn, _R1 = self.SE_data[idx]
-            formatted_file = os.path.join(self.odir,
-                                          "cleandata",
-                                          "%s.fasta" % sn)
-            if not os.path.islink(formatted_file):
-                os.makedirs(os.path.dirname(formatted_file),
-                            exist_ok=True)
-            else:
-                os.remove(formatted_file)
-            run_cmd("ln -s '{ori}' {new}".format(ori=_R1,
-                                                 new=formatted_file),
-                    dry_run=self.dry_run,
-                    log_file=log_file_stream)
-            inpth = formatted_file
-            pandoo_tab = pandoo_tab.append(pd.DataFrame([[inpth,
+            formatted_pth = self.input()["SE"][idx].path
+            pandoo_tab = pandoo_tab.append(pd.DataFrame([[formatted_pth,
                                                           '',
                                                           '',
                                                           ]], index=[sn]))
-        pandoo_file = os.path.join(self.odir, "pandoo_input.tab")
+        pandoo_file = os.path.join(str(self.odir), "pandoo_input.tab")
         with open(pandoo_file, 'w') as f1:
-            pandoo_tab.to_csv(f1, sep='\t', header=None)
+            pandoo_tab.to_csv(f1, sep='\t', header=None,index=1)
         run_pandoo(in_file=pandoo_file,
                    odir=os.path.dirname(self.output().path),
-                   thread=7,  # todo
+                   thread=constant.p_pandoo,  # todo: determine the thread
                    dry_run=self.dry_run,
                    log_file=log_file_stream)
 
@@ -424,8 +437,8 @@ class abricate(luigi.Task):
         run_abricate(prokka_o,
                      roary_dir=roary_dir,
                      odir=os.path.dirname(self.output().path),
-                     thread=7,  # todo
-                     mincov=80,  # todo
+                     thread=constant.p_abricate,   # todo: determine the thread
+                     mincov=constant.mincov_abricate,  # todo
                      dry_run=self.dry_run,
                      log_file=log_file_stream)
 
@@ -439,7 +452,10 @@ class ISEscan(luigi.Task):
 
     def requires(self):
         if not self.R2:
-            return
+            return preprocess_SE(R1=self.R1,
+                                 odir=self.odir,
+                                 dry_run=self.dry_run,
+                                 sample_name=self.sample_name)
         elif self.R2:
             return shovill(R1=self.R1,
                            R2=self.R2,
@@ -463,24 +479,7 @@ class ISEscan(luigi.Task):
         return luigi.LocalTarget(ofile)
 
     def run(self):
-        if not self.R2:
-            formatted_file = os.path.join(self.odir,
-                                          "cleandata",
-                                          "%s.fasta" % self.sample_name)
-            if not os.path.islink(formatted_file):
-                os.makedirs(os.path.dirname(formatted_file),
-                            exist_ok=True)
-            else:
-                os.remove(formatted_file)
-            run_cmd("ln -s '{ori}' {new}".format(ori=self.R1,
-                                                 new=formatted_file),
-                    dry_run=self.dry_run,
-                    log_file=log_file_stream)
-            infile_pth = formatted_file
-        elif self.R2:
-            infile_pth = self.input().path
-        else:
-            raise Exception
+        infile_pth = self.input().path
 
         run_ISEscan(infile=infile_pth,
                     odir=os.path.dirname(os.path.dirname(self.output().path)),
@@ -546,8 +545,7 @@ class ISEscan_summary(luigi.Task):
 
         abricate_file = self.input()["abricate"].path
         locus2annotate_df = pd.read_csv(abricate_file, sep=',', index_col=0)
-        locus2annotate = dict(zip(locus2annotate_df.index,
-                                  locus2annotate_df.loc[:, 'gene']))
+        locus2annotate = locus2annotate_df.loc[:,'gene'].to_dict()
         final_r = {}
         for IS_gff, ori_gff, sample_name in zip(self.input()["IS_scan"],
                                                 self.input()["prokka"],
@@ -598,7 +596,7 @@ class detect_plasmid(luigi.Task):
                                               sample_name=sn,
                                               odir=self.odir,
                                               dry_run=self.dry_run,
-                                              status='regular'
+                                              status='plasmid'
                                               ) for sn, _R1, _R2 in self.PE_data]
 
         return required_tasks
@@ -623,8 +621,10 @@ class workflow(luigi.Task):
     dry_run = luigi.BoolParameter()
     log_file = luigi.Parameter(default=None)
 
-    def requires(self):
+    def output(self):
+        pass
 
+    def requires(self):
         input_df = pd.read_csv(self.tab, sep='\t', index_col=0, dtype=str)
         # index is samples ID, following is [R1,R2,ref_fna,ref_gff]
         validate_table(input_df)
@@ -644,6 +644,7 @@ class workflow(luigi.Task):
             other_info = PE_rows.to_dict(orient='index')
         else:
             other_info = None
+
         global log_file_stream
         if self.log_file is None:
             log_file = os.path.join(str(self.odir), "pipelines.log")
@@ -656,7 +657,6 @@ class workflow(luigi.Task):
                 log_file_stream = open(log_file, 'a')
         if log_file_stream is None:
             log_file_stream = open(log_file, 'w')
-
 
         require_tasks.append(multiqc(PE_data=pairreads,
                                      status='before',
@@ -693,9 +693,15 @@ class workflow(luigi.Task):
                                             dry_run=self.dry_run))
 
         return require_tasks
-
+    def run(self):
+        #post pipelines
+        pass
 
 if __name__ == '__main__':
+
+
+
+
     luigi.run()
     # luigi.build([workflow(tab="/home/liaoth/project/genome_pipelines/pipelines/test/test_input.tab",
     #                       odir="/home/liaoth/project/genome_pipelines/pipelines/test/test_luigi",

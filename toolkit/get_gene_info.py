@@ -1,28 +1,28 @@
 import os
 
 import gffutils
-import pandas as pd
-from Bio import SeqIO
-from tqdm import tqdm
+from BCBio import GFF
 
 tmp_dir = '/tmp'
-def clean_db(tab,prokka_dir):
-    data = pd.read_csv(tab, sep=',', index_col=0, low_memory=False)
-    for name in data.loc[0, :][13:].index:
-        gff_fn = os.path.join(prokka_dir, name, '%s.gff' % name)
-        dbfn = os.path.join(tmp_dir, os.path.basename(gff_fn).split('.')[0])
-        os.remove(dbfn)
 
-def get_gff(gff_fn):
-    dbfn = os.path.join(tmp_dir, os.path.basename(gff_fn).rsplit('.',1)[0])
-    if os.path.isfile(dbfn):
-        os.remove(dbfn)
-        fn = gffutils.create_db(gff_fn, dbfn=dbfn,merge_strategy='merge')
-    else:
-        fn = gffutils.create_db(gff_fn, dbfn=dbfn,merge_strategy='merge')
-    return fn
 
-def get_gene_with_regin(gff_fn,regions):
+def get_gff(gff_fn, mode='db'):
+    if mode == 'db':
+        dbfn = os.path.join(tmp_dir,
+                            os.path.basename(gff_fn).rsplit('.', 1)[0] + '.gffdb')
+        if os.path.isfile(dbfn):
+            os.remove(dbfn)
+            fn = gffutils.create_db(gff_fn, dbfn=dbfn, merge_strategy='merge')
+        else:
+            fn = gffutils.create_db(gff_fn, dbfn=dbfn, merge_strategy='merge')
+        return fn
+    elif mode == 'bcbio':
+        gff_obj = GFF.parse(gff_fn)
+        record_dict = {_.id: _ for _ in gff_obj}
+        return record_dict
+
+
+def get_gene_with_regin(gff_fn, regions):
     gff_f = get_gff(gff_fn)
     all_genes = []
     for region in regions:
@@ -31,8 +31,6 @@ def get_gene_with_regin(gff_fn,regions):
                 all_genes.append(cds["ID"][0])
             else:
                 all_genes.append(cds["note"][0])
-    return all_genes
 
-if __name__ == '__main__':
-    # todo: make it a api with output which describe the gene
-    pass
+    os.system("rm %s/*.gffdb" % tmp_dir)
+    return all_genes
