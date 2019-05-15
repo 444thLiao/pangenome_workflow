@@ -27,6 +27,8 @@ def get_plasmids(indir):
         if not os.path.isfile(plasmid_contig):
             # it may the SE data, so it should not process plasmid
             continue
+        plasmid_count_dict = defaultdict(list)
+        sample_name = os.path.basename(os.path.dirname(contig))
         if os.path.getsize(plasmid_contig) > 0:
             result = check_output("bwa mem -x intractg {regular_one} {plasmid_one}".format(regular_one=contig,
                                                                                            plasmid_one=plasmid_contig),
@@ -36,17 +38,17 @@ def get_plasmids(indir):
             result = [_ for _ in result.split('\n') if not _.startswith('@') and _]
             match_plasmid_row = [row.split('\t')[0] for row in result]
             match_contig_row = [row.split('\t')[2] for row in result]
-            match_leftmost_pos = [row.split('\t')[2] for row in result]
-            # 1-coordinate
+            match_region = ["%s:%s-%s" % (row.split('\t')[2],
+                                          int(row.split('\t')[3]) - 1,  # convert 0-coord
+                                          len(row.split('\t')[9])) for row in result]
 
-            plasmid_count_dict = defaultdict(list)
-            for p, c in zip(match_plasmid_row,
-                            match_contig_row):
+            for p, c, region in zip(match_plasmid_row,
+                                    match_contig_row,
+                                    match_region):
                 num_p = re.findall("component_([0-9]+)$",
                                    p)[0]  # get plasmids num/ID
                 plasmid_count_dict[num_p].append(c)
-            sample_name = os.path.basename(os.path.dirname(contig))
-            result_dict[sample_name] = plasmid_count_dict
+        result_dict[sample_name] = plasmid_count_dict
     return result_dict
 
 

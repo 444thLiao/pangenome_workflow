@@ -3,8 +3,10 @@ import json
 import luigi
 import pandas as pd
 
-from pipelines.tasks import *
 from pipelines import constant_str as constant
+from pipelines.tasks import *
+
+
 # give some default parameter
 
 class fastqc(luigi.Task):
@@ -261,7 +263,7 @@ class shovill(luigi.Task):
         run_shovill(R1=self.input()[0].path,
                     R2=self.input()[1].path,
                     odir=os.path.dirname(self.output().path),
-                    thread=constant.p_shovill,   # todo: determine the thread
+                    thread=constant.p_shovill,  # todo: determine the thread
                     ram=constant.ram_shovill,  # todo
                     spades_extra_options=spades_extra_options,
                     extra_option=extra_option,
@@ -327,7 +329,7 @@ class roary(luigi.Task):
     def run(self):
         run_roary(os.path.dirname(os.path.dirname(self.input()[0].path)),
                   os.path.dirname(self.output()[0].path),
-                  thread=constant.p_roary,   # todo: determine the thread
+                  thread=constant.p_roary,  # todo: determine the thread
                   dry_run=self.dry_run,
                   log_file=log_file_stream)
 
@@ -363,15 +365,15 @@ class pandoo(luigi.Task):
         required_tasks = {}
 
         required_tasks["PE"] = [shovill(R1=_R1,
-                                   R2=_R2,
-                                   sample_name=sn,
-                                   odir=self.odir,
-                                   dry_run=self.dry_run,
-                                   status='regular') for sn, _R1, _R2 in self.PE_data]
+                                        R2=_R2,
+                                        sample_name=sn,
+                                        odir=self.odir,
+                                        dry_run=self.dry_run,
+                                        status='regular') for sn, _R1, _R2 in self.PE_data]
         required_tasks["SE"] = [preprocess_SE(R1=_R1,
-                                         odir=self.odir,
-                                         dry_run=self.dry_run,
-                                         sample_name=sn) for sn, _R1 in self.SE_data]
+                                              odir=self.odir,
+                                              dry_run=self.dry_run,
+                                              sample_name=sn) for sn, _R1 in self.SE_data]
         return required_tasks
 
     def output(self):
@@ -399,7 +401,7 @@ class pandoo(luigi.Task):
                                                           ]], index=[sn]))
         pandoo_file = os.path.join(str(self.odir), "pandoo_input.tab")
         with open(pandoo_file, 'w') as f1:
-            pandoo_tab.to_csv(f1, sep='\t', header=None,index=1)
+            pandoo_tab.to_csv(f1, sep='\t', header=None, index=1)
         run_pandoo(in_file=pandoo_file,
                    odir=os.path.dirname(self.output().path),
                    thread=constant.p_pandoo,  # todo: determine the thread
@@ -437,7 +439,7 @@ class abricate(luigi.Task):
         run_abricate(prokka_o,
                      roary_dir=roary_dir,
                      odir=os.path.dirname(self.output().path),
-                     thread=constant.p_abricate,   # todo: determine the thread
+                     thread=constant.p_abricate,  # todo: determine the thread
                      mincov=constant.mincov_abricate,  # todo
                      dry_run=self.dry_run,
                      log_file=log_file_stream)
@@ -545,7 +547,7 @@ class ISEscan_summary(luigi.Task):
 
         abricate_file = self.input()["abricate"].path
         locus2annotate_df = pd.read_csv(abricate_file, sep=',', index_col=0)
-        locus2annotate = locus2annotate_df.loc[:,'gene'].to_dict()
+        locus2annotate = locus2annotate_df.loc[:, 'gene'].to_dict()
         final_r = {}
         for IS_gff, ori_gff, sample_name in zip(self.input()["IS_scan"],
                                                 self.input()["prokka"],
@@ -693,15 +695,13 @@ class workflow(luigi.Task):
                                             dry_run=self.dry_run))
 
         return require_tasks
+
     def run(self):
-        #post pipelines
+        # post pipelines
         pass
 
+
 if __name__ == '__main__':
-
-
-
-
     luigi.run()
     # luigi.build([workflow(tab="/home/liaoth/project/genome_pipelines/pipelines/test/test_input.tab",
     #                       odir="/home/liaoth/project/genome_pipelines/pipelines/test/test_luigi",

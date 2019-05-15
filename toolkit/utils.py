@@ -16,21 +16,26 @@ def validate_table(df):
         raise Exception("Some rows doesn't have R1 and R2. ")
 
 def run_cmd(cmd, dry_run=False, log_file=None, **kwargs):
+    log_file_stream = None
     if type(log_file) == str:
-        log_file = open(log_file, 'w')
+        if os.path.isfile(log_file):
+            if os.path.getsize(log_file) == 0:
+                log_file_stream = open(log_file, 'a')
+        if log_file_stream is None:
+            log_file = open(log_file, 'w')
     elif log_file is None:
-        log_file = sys.stdout
+        log_file_stream = sys.stdout
 
-    print(cmd, file=log_file)
-    log_file.flush()
+    print(cmd, file=log_file_stream)
+    log_file_stream.flush()
     if not dry_run:
         check_call(cmd,
                    shell=True,
                    executable="/usr/bin/zsh",
-                   stdout=log_file if log_file is not None else sys.stdout,
-                   stderr=log_file if log_file is not None else sys.stderr,
+                   stdout=log_file_stream,
+                   stderr=log_file_stream,
                    **kwargs)
-        log_file.flush()
+        log_file_stream.flush()
 
 
 def valid_path(in_pth,
