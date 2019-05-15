@@ -6,11 +6,13 @@ from glob import glob
 from subprocess import check_output
 
 import pandas as pd
+from BCBio import GFF
+from Bio import SeqIO
 from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from toolkit.utils import run_cmd, get_locus2group, get_length_fasta
-from toolkit.get_gene_info import get_gene_with_regin
+from toolkit.utils import run_cmd, get_locus2group, get_length_fasta, valid_path
+from toolkit.get_gene_info import get_gff,add_fea4plasmid
 
 
 def get_plasmids(indir):
@@ -20,7 +22,7 @@ def get_plasmids(indir):
                                          'regular',
                                          '*',
                                          'contigs.fa'))):
-        run_cmd("bwa index %s" % contig, dry_run=False)
+        run_cmd("bwa index %s" % contig, dry_run=False, log_file='/tmp/tmp.log')
         plasmid_contig = contig.replace('/regular/',
                                         '/plasmidsSpades/') + 'sta'
         # regular is 'contigs.fa', plasmids must is 'contigs.fasta'
@@ -37,47 +39,77 @@ def get_plasmids(indir):
             result = result.decode('utf-8')
             result = [_ for _ in result.split('\n') if not _.startswith('@') and _]
             match_plasmid_row = [row.split('\t')[0] for row in result]
-            match_contig_row = [row.split('\t')[2] for row in result]
             match_region = ["%s:%s-%s" % (row.split('\t')[2],
                                           int(row.split('\t')[3]) - 1,  # convert 0-coord
-                                          len(row.split('\t')[9])) for row in result]
+                                          int(row.split('\t')[3]) - 1 + len(row.split('\t')[9])) for row in result]
 
-            for p, c, region in zip(match_plasmid_row,
-                                    match_contig_row,
-                                    match_region):
+            for p, region in zip(match_plasmid_row,
+                                 match_region):
                 num_p = re.findall("component_([0-9]+)$",
                                    p)[0]  # get plasmids num/ID
-                plasmid_count_dict[num_p].append(c)
+                plasmid_count_dict[num_p].append(region)
         result_dict[sample_name] = plasmid_count_dict
     return result_dict
 
 
 def get_gene_in_plasmids(plasmids_dict, locus2group, prokka_dir):
     plasmids_genes = {}
+    plasmids_records = {}
+    full_records = {}
     for sn, p2contig in plasmids_dict.items():
-        plasmids_genes[sn] = {}
-        all_plasmid_r = [plasmid for plasmids in p2contig.values() for plasmid in plasmids]
-        gff_p = os.path.join(prokka_dir, "{sn}/{sn}.gff")
+        gff_p = os.path.join(prokka_dir,
+                             "{sn}/{sn}.gff")
         if not os.path.isfile(gff_p.format(sn=sn)):
             gff_p = os.path.join(prokka_dir, "{sn}.gff")
         if not os.path.isfile(gff_p.format(sn=sn)):
             raise Exception("weird prokka input")
-        all_genes = get_gene_with_regin(gff_p.format(sn=sn), all_plasmid_r)
-        for g in all_genes:
-            g = locus2group.get(g, 'removed')
-            # todo: process these lost genes
-            if g != 'removed':
-                plasmids_genes[sn][g] = 1
+        # avoid missing formatted prokka dir.
+        gff_dict = get_gff(gff_p.format(sn=sn), mode='bcbio')
 
-    return plasmids_genes
+        plasmids_genes[sn] = {}
+        plasmids_records[sn] = []
+        full_records[sn] = []
+        for plasmid, p2regions in p2contig.items():
+            plasmid_chrome = []
+            count = 0
+            for region in p2regions:
+                contig = region.split(':')[0]
+                start, end = map(int, region.split(':')[1].split('-'))
+                record = gff_dict[contig]
+
+                subrecord = record[start:end]
+                subrecord.id = 'plasmid%s_piece%s' % (str(plasmid),
+                                                      str(count))
+                subrecord.name = subrecord.description = ''
+                add_fea4plasmid(record, start, end,subrecord.id )
+                for cds in subrecord.features:
+                    cds_id = cds.id
+                    group = locus2group.get(cds_id, "removed")
+                    if group != 'removed':
+                        # todo: process these lost genes
+                        plasmids_genes[sn][group] = 1
+                        cds.id = group
+                        cds.qualifiers["ID"] = cds.qualifiers['locus_tag'] = [group]
+                plasmid_chrome.append(subrecord)
+                count += 1
+
+            plasmids_records[sn] += plasmid_chrome
+        plasmids_records[sn] = list(sorted(plasmids_records[sn],
+                                           key=lambda record: tuple(map(int, record.id.strip('plasmid').split('_piece')))))
+        full_records[sn] = list(gff_dict.values())
+    return plasmids_genes, plasmids_records,full_records
 
 
 def main(indir, roary_dir, prokka_dir, odir):
+    only_p = os.path.join(odir, "onlyplasmid")
+    fullwithannotated = os.path.join(odir, "fullWithAnnotated")
+    valid_path([only_p, fullwithannotated], check_odir=1)
+
     plasmids_dict = get_plasmids(indir)
     locus2group = get_locus2group(roary_dir)
-    plasmids_genes = get_gene_in_plasmids(plasmids_dict,
-                                          locus2group,
-                                          prokka_dir)
+    plasmids_genes, plasmids_records, full_records = get_gene_in_plasmids(plasmids_dict,
+                                                            locus2group,
+                                                            prokka_dir)
     samples_name = plasmids_dict.keys()
 
     summary_df = pd.DataFrame(
@@ -118,6 +150,14 @@ def main(indir, roary_dir, prokka_dir, odir):
                                       length_plasmidscontigs / length_contigs
                                       ]])
         summary_df = summary_df.append(_sub_df)
+        if plasmids_records[sample_name]:
+            with open(os.path.join(only_p, "%s_plasmid.fa" % sample_name), 'w') as f1:
+                SeqIO.write(plasmids_records[sample_name], f1, format='fasta')
+            with open(os.path.join(only_p, "%s_plasmid.gff" % sample_name), 'w') as f1:
+                GFF.write(plasmids_records[sample_name], f1)
+
+            with open(os.path.join(fullwithannotated, "%s_plasmidannotated.gff" % sample_name), 'w') as f1:
+                GFF.write(full_records[sample_name], f1)
     # todo: process output; except a statistic info(summary df), (plasmids_genes) also important. Cut corresponding gff/region into files.
     summary_pth = os.path.join(odir, "plasmid_summary.csv")
     summary_df.to_csv(summary_pth, sep=',')

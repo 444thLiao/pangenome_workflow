@@ -2,6 +2,7 @@ import os
 
 import gffutils
 from BCBio import GFF
+from Bio.SeqFeature import SeqFeature, FeatureLocation
 
 tmp_dir = '/tmp'
 
@@ -34,3 +35,15 @@ def get_gene_with_regin(gff_fn, regions):
 
     os.system("rm %s/*.gffdb" % tmp_dir)
     return all_genes
+
+def add_fea4plasmid(record,start,end,id):
+
+    qualifiers = {"source": "plasmid",
+                  "ID": id}
+
+    top_feature = SeqFeature(FeatureLocation(start,end),
+                             type="plasmid_annotated",
+                             strand=1,
+                             qualifiers=qualifiers)
+    record.features.append(top_feature)
+    # inplace change

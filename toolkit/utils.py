@@ -27,7 +27,7 @@ def run_cmd(cmd, dry_run=False, log_file=None, **kwargs):
         log_file_stream = sys.stdout
     else:
         log_file_stream = log_file
-        
+
     print(cmd, file=log_file_stream)
     log_file_stream.flush()
     if not dry_run:

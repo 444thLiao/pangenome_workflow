@@ -51,7 +51,7 @@ def get_IS_CDS(ori_gff, IS_gff, locus2annotate, locus2group):
                         notis_gene.append(new_name)
             if notis_gene:
                 IS2CDS[IS_id] = notis_gene
-                IS2INFO[IS_id].update(IS.attributes)
+                IS2INFO[IS_id].update(each_IS.qualifiers)
     return IS2CDS, IS2INFO
 
 
@@ -74,6 +74,7 @@ def batch_get(prokka_dir,
         final_r[sn] = (IS2CDS, IS2INFO)
     # sample name: (IS2CDS,IS2INFO)
     return final_r
+
 
 
 if __name__ == '__main__':
