@@ -22,10 +22,12 @@ def run_cmd(cmd, dry_run=False, log_file=None, **kwargs):
             if os.path.getsize(log_file) == 0:
                 log_file_stream = open(log_file, 'a')
         if log_file_stream is None:
-            log_file = open(log_file, 'w')
+            log_file_stream = open(log_file, 'w')
     elif log_file is None:
         log_file_stream = sys.stdout
-
+    else:
+        log_file_stream = log_file
+        
     print(cmd, file=log_file_stream)
     log_file_stream.flush()
     if not dry_run:
