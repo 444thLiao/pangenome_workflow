@@ -227,6 +227,7 @@ def run_pandoo(in_file,
                             input=in_file,  # "isolates_pre.tab",
                             thread=thread,
                             odir=odir)
+    cmd += """ -a "{}" """
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 
