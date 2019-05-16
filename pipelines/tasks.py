@@ -359,7 +359,7 @@ def post_analysis(workflow_task):
     valid_path(new_gff_odir,check_odir=1)
     ############################################################
     # mlst
-    pandoo_ofile = workflow_task.output()["pandoo"].path
+    pandoo_ofile = workflow_task.input()["pandoo"].path
     pandoo_df = pd.read_csv(pandoo_ofile, index_col=0, )
     mlst_df = pandoo_df.loc[:, pandoo_df.columns.str.contains("MLST")]
     from toolkit.process_mlst import main as process_mlst
@@ -369,7 +369,7 @@ def post_analysis(workflow_task):
             mlst_df.to_csv(f1, index=1)
     ############################################################
     # abricate
-    abricate_ofile = workflow_task.output()["abricate"].path
+    abricate_ofile = workflow_task.input()["abricate"].path
     abricate_dir = os.path.dirname(abricate_ofile)
     new_abricate_dir = os.path.join(new_gff_odir,"abricate_annotated_gff")
     valid_path(new_abricate_dir,check_odir=1)
@@ -382,18 +382,18 @@ def post_analysis(workflow_task):
                             new_abricate_dir))  # todo: not yet
     ############################################################
     # fasttree
-    core_gene_tree = workflow_task.output()["fasttree"].path
+    core_gene_tree = workflow_task.input()["fasttree"].path
     os.system("cp %s %s" % (core_gene_tree,
                             summary_odir))
     ############################################################
     # plasmid
-    plasmid_summary_file = workflow_task.output()["detect_plasmid"].path
+    plasmid_summary_file = workflow_task.input()["detect_plasmid"].path
     plasmid_dir = os.path.dirname(plasmid_summary_file)
     os.system("cp %s %s" % (os.path.join(plasmid_dir,"fullWithAnnotated"),
                             new_gff_odir))
     ############################################################
     # IS
-    IS_summary_file = workflow_task.output()["ISEscan_summary"].path
+    IS_summary_file = workflow_task.input()["ISEscan_summary"].path
     IS_dir = os.path.dirname(IS_summary_file)
     new_IS_dir = os.path.join(new_gff_odir, "IS_gff")
     valid_path(new_IS_dir, check_odir=1)
@@ -401,7 +401,7 @@ def post_analysis(workflow_task):
                             new_IS_dir))
     ############################################################
     # phage
-    IS_summary_file = workflow_task.output()["ISEscan_summary"].path
+    IS_summary_file = workflow_task.input()["ISEscan_summary"].path
     IS_dir = os.path.dirname(IS_summary_file)
     new_IS_dir = os.path.join(new_gff_odir, "IS_gff")
     valid_path(new_IS_dir, check_odir=1)
