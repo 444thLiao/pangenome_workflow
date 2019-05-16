@@ -727,7 +727,7 @@ class phigaro_summary(ISEscan_summary):
                 other_info = vals.loc[set(vals.index).difference({"scaffold",
                                                                   "begin",
                                                                   "end"})].to_dict()
-                summary_df.append(pd.DataFrame([[region,
+                summary_df = summary_df.append(pd.DataFrame([[region,
                                                  json.dumps(other_info)]], index=[0]))
         summary_df.to_csv(self.output().path, sep='\t', index=0)
 
