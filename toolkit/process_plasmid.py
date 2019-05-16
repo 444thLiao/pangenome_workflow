@@ -67,7 +67,10 @@ def get_gene_in_plasmids(plasmids_dict, locus2group, prokka_dir):
         gff_pth = get_gff_pth(prokka_dir, sn)
         # avoid missing formatted prokka dir.
         gff_dict = get_gff(gff_pth, mode='bcbio')
-
+        # remove all features, make sure the output file only contains detected plasmid
+        for record in gff_dict.values():
+            record.clear()
+            
         plasmids_genes[sn] = {}
         plasmids_records[sn] = []
         full_records[sn] = []

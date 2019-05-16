@@ -1,8 +1,10 @@
 import os
 import sys
 from glob import glob
+import pandas as pd
 
-from toolkit.utils import run_cmd, valid_path, validate_table
+
+from toolkit.utils import run_cmd, valid_path
 from .constant_str import *
 
 
@@ -278,7 +280,6 @@ def run_ISEscan(infile,
                 sample_name,
                 dry_run=False,
                 log_file=None):
-
     if not dry_run:
         valid_path(infile, check_size=True)
     valid_path(odir, check_odir=True)
@@ -310,21 +311,97 @@ def run_plasmid_detect(indir,
 
 
 # todo: add more post-analysis to it.
-    # checkM (completeness of assembly data) https://github.com/Ecogenomics/CheckM
-    # phigaro (prophage finder) https://github.com/bobeobibo/phigaro
-    # gubbins (recombination) https://github.com/sanger-pathogens/gubbins
-    # popins (new IS) https://github.com/bkehr/popins
+# checkM (completeness of assembly data) https://github.com/Ecogenomics/CheckM
+# popins (new IS) https://github.com/bkehr/popins
 
 # todo: add auto generated heatmap for this pipelines.
 
-def run_phagefinder(dry_run=False,
-                    log_file=None):
-    pass
-
-
-def run_gubbins(dry_run=False,
+def run_phigaro(infile,
+                ofile,
+                thread=0,
+                dry_run=False,
                 log_file=None):
-    pass
+    if thread == 0 or thread == -1:
+        thread = cpu_count()
+    if not dry_run:
+        valid_path(infile, check_size=1)
+    valid_path(ofile, check_ofile=1)
+    cmd = phigaro_cmd.format(exe_path=phigaro_path,
+                             infile=infile,
+                             ofile=ofile,
+                             thread=thread,)
+    run_cmd(cmd, dry_run=dry_run, log_file=log_file)
+
+
+def run_gubbins(infile,
+                oprefix,
+                thread=0,
+                dry_run=False,
+                log_file=None):
+    if thread == 0 or thread == -1:
+        thread = cpu_count()
+    if not dry_run:
+        valid_path(infile, check_size=1)
+    valid_path(oprefix, check_ofile=1)
+
+    cmd = gubbins_cmd.format(exe_path=gubbins_path,
+                             infile=infile,
+                             oprefix=oprefix,
+                             thread=thread)
+    run_cmd(cmd, dry_run=dry_run, log_file=log_file)
+
+############################################################
+def post_analysis(workflow_task):
+    # only ofr workflow post analysis
+    odir = workflow_task.odir
+    summary_odir = os.path.join(odir,"pipelines_summary")
+    new_gff_odir = os.path.join(odir,"pipelines_summary","new_gff")
+    valid_path(new_gff_odir,check_odir=1)
+    ############################################################
+    # mlst
+    pandoo_ofile = workflow_task.output()["pandoo"].path
+    pandoo_df = pd.read_csv(pandoo_ofile, index_col=0, )
+    mlst_df = pandoo_df.loc[:, pandoo_df.columns.str.contains("MLST")]
+    from toolkit.process_mlst import main as process_mlst
+    output_mlst_df = process_mlst(mlst_df)
+    for scheme,mlst_df in output_mlst_df:
+        with open(os.path.join(summary_odir,"%s_mlst.csv" % scheme),'w') as f1:
+            mlst_df.to_csv(f1, index=1)
+    ############################################################
+    # abricate
+    abricate_ofile = workflow_task.output()["abricate"].path
+    abricate_dir = os.path.dirname(abricate_ofile)
+    new_abricate_dir = os.path.join(new_gff_odir,"abricate_annotated_gff")
+    valid_path(new_abricate_dir,check_odir=1)
+
+    os.system("cp %s %s" % (abricate_ofile,
+                            summary_odir))
+    os.system("cp %s %s" % (os.path.join(abricate_dir,"samples2annotate.csv"),
+                            summary_odir))
+    os.system("cp %s %s" % (os.path.join(abricate_dir,"*","*.gff"),
+                            new_abricate_dir))  # todo: not yet
+    ############################################################
+    # fasttree
+    core_gene_tree = workflow_task.output()["fasttree"].path
+    os.system("cp %s %s" % (core_gene_tree,
+                            summary_odir))
+    ############################################################
+    # plasmid
+    plasmid_summary_file = workflow_task.output()["detect_plasmid"].path
+    plasmid_dir = os.path.dirname(plasmid_summary_file)
+    os.system("cp %s %s" % (os.path.join(plasmid_dir,"fullWithAnnotated"),
+                            new_gff_odir))
+    ############################################################
+    # IS
+    IS_summary_file = workflow_task.output()["ISEscan_summary"].path
+    IS_dir = os.path.dirname(IS_summary_file)
+    new_IS_dir = os.path.join(new_gff_odir, "IS_gff")
+    valid_path(new_IS_dir, check_odir=1)
+    os.system("cp %s %s" % (os.path.join(IS_dir,"*","*.gff"),
+                            new_IS_dir))
+    ############################################################
+    #
+
 
 
 ############################################################

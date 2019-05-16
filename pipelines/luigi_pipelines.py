@@ -1,10 +1,10 @@
 import json
 
 import luigi
-import pandas as pd
 
 from pipelines import constant_str as constant
 from pipelines.tasks import *
+from toolkit.utils import validate_table
 
 
 # give some default parameter
@@ -157,12 +157,19 @@ class trimmomatic(luigi.Task):
     def run(self):
         run_trimmomatic(R1=self.R1,
                         R2=self.R2,
-                        odir=os.path.join(self.odir, "cleandata"),
+                        odir=os.path.join(str(self.odir),
+                                          "cleandata"),
                         sample_name=self.sample_name,
                         thread=constant.p_trimmomatic,  # todo: determine the thread
                         dry_run=self.dry_run,
                         log_file=log_file_stream
                         )
+        # remove the log file, too waste
+        try:
+            pth = self.output()[0].path.replace('_R1.clean.fq.gz', '.log')
+            os.remove(pth)
+        except:
+            pass
 
 
 class quast(luigi.Task):
@@ -310,6 +317,7 @@ class prokka(luigi.Task):
 
 
 class roary(luigi.Task):
+    # comparative
     PE_data = luigi.TupleParameter()
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter()
@@ -335,6 +343,7 @@ class roary(luigi.Task):
 
 
 class fasttree(luigi.Task):
+    # comparative
     PE_data = luigi.TupleParameter()
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter()
@@ -356,6 +365,7 @@ class fasttree(luigi.Task):
 
 
 class pandoo(luigi.Task):
+    # single and joint
     PE_data = luigi.TupleParameter()
     SE_data = luigi.TupleParameter()
     odir = luigi.Parameter()
@@ -410,6 +420,7 @@ class pandoo(luigi.Task):
 
 
 class abricate(luigi.Task):
+    # single and joint
     PE_data = luigi.TupleParameter()
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter()
@@ -436,6 +447,7 @@ class abricate(luigi.Task):
     def run(self):
         prokka_o = os.path.dirname(os.path.dirname(self.input()[1].path))
         roary_dir = os.path.dirname(self.input()[0][0].path)
+        # add(instead of annotated) annotated features into gff
         run_abricate(prokka_o,
                      roary_dir=roary_dir,
                      odir=os.path.dirname(self.output().path),
@@ -446,6 +458,7 @@ class abricate(luigi.Task):
 
 
 class ISEscan(luigi.Task):
+    # single
     R1 = luigi.Parameter()
     R2 = luigi.Parameter()
     odir = luigi.Parameter()
@@ -467,12 +480,7 @@ class ISEscan(luigi.Task):
                            status='regular')
 
     def output(self):
-        if not self.R2:
-            final_name = "%s.fasta.gff" % self.sample_name
-        elif self.R2:
-            final_name = 'contigs.fa.gff'
-        else:
-            raise Exception
+        final_name = "%s.gff" % self.sample_name
         ofile = os.path.join(str(self.odir),
                              "ISscan_result",
                              str(self.sample_name),
@@ -488,9 +496,17 @@ class ISEscan(luigi.Task):
                     sample_name=self.sample_name,
                     dry_run=self.dry_run,
                     log_file=log_file_stream)
+        # For rename
+        odir = os.path.dirname(self.output().path)
+        for ori_file in glob(os.path.join(odir, '*')):
+            suffix = os.path.basename(ori_file).split('.')[-1]
+            os.renames(ori_file,
+                       os.path.join(odir,
+                                    str(self.sample_name) + '.%s' % suffix))
 
 
 class ISEscan_summary(luigi.Task):
+    # joint
     PE_data = luigi.TupleParameter()
     SE_data = luigi.TupleParameter()
     odir = luigi.Parameter()
@@ -569,6 +585,7 @@ class ISEscan_summary(luigi.Task):
 
 
 class detect_plasmid(luigi.Task):
+    # joint
     PE_data = luigi.TupleParameter()
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter()
@@ -636,7 +653,7 @@ class workflow(luigi.Task):
         Single_rows = input_df.loc[~input_df.index.isin(PE_rows.index), :]
         # except the PE_rows
         valid_path(self.odir, check_odir=True)
-        require_tasks = []
+        require_tasks = {}
         pairreads = tuple(zip(PE_rows.index,
                               PE_rows.iloc[:, 0],
                               PE_rows.iloc[:, 1], ))
@@ -660,45 +677,48 @@ class workflow(luigi.Task):
         if log_file_stream is None:
             log_file_stream = open(log_file, 'w')
 
-        require_tasks.append(multiqc(PE_data=pairreads,
-                                     status='before',
-                                     odir=self.odir,
-                                     dry_run=self.dry_run,
-                                     ))
-        require_tasks.append(multiqc(PE_data=pairreads,
-                                     status='after',
-                                     odir=self.odir,
-                                     dry_run=self.dry_run,
-                                     ))
-        require_tasks.append(multiqc(PE_data=pairreads,
-                                     status='quast',
-                                     other_info=json.dumps(other_info),
-                                     odir=self.odir,
-                                     dry_run=self.dry_run,
-                                     ))
-        require_tasks.append(abricate(PE_data=pairreads,
-                                      odir=self.odir,
-                                      dry_run=self.dry_run))
-        require_tasks.append(fasttree(PE_data=pairreads,
-                                      odir=self.odir,
-                                      dry_run=self.dry_run))
-        require_tasks.append(ISEscan_summary(PE_data=pairreads,
-                                             SE_data=singlereads,
+        require_tasks["fastqc_before"] = multiqc(PE_data=pairreads,
+                                                 status='before',
+                                                 odir=self.odir,
+                                                 dry_run=self.dry_run)
+        require_tasks["fastqc_after"] = multiqc(PE_data=pairreads,
+                                                status='after',
+                                                odir=self.odir,
+                                                dry_run=self.dry_run,
+                                                )
+        require_tasks["fastqc_quast"] = multiqc(PE_data=pairreads,
+                                                status='quast',
+                                                other_info=json.dumps(other_info),
+                                                odir=self.odir,
+                                                dry_run=self.dry_run,
+                                                )
+        require_tasks["abricate"] = abricate(PE_data=pairreads,
                                              odir=self.odir,
-                                             dry_run=self.dry_run))
-        require_tasks.append(pandoo(PE_data=pairreads,
-                                    SE_data=singlereads,
-                                    odir=self.odir,
-                                    dry_run=self.dry_run))
-        require_tasks.append(detect_plasmid(PE_data=pairreads,
-                                            odir=self.odir,
-                                            dry_run=self.dry_run))
+                                             dry_run=self.dry_run)
+        require_tasks["fasttree"] = fasttree(PE_data=pairreads,
+                                             odir=self.odir,
+                                             dry_run=self.dry_run)
+        require_tasks["ISEscan_summary"] = ISEscan_summary(PE_data=pairreads,
+                                                           SE_data=singlereads,
+                                                           odir=self.odir,
+                                                           dry_run=self.dry_run)
+        require_tasks["pandoo"] = pandoo(PE_data=pairreads,
+                                         SE_data=singlereads,
+                                         odir=self.odir,
+                                         dry_run=self.dry_run)
+        require_tasks["detect_plasmid"] = detect_plasmid(PE_data=pairreads,
+                                                         odir=self.odir,
+                                                         dry_run=self.dry_run)
 
         return require_tasks
 
     def run(self):
         # post pipelines
-        pass
+        pandoo_ofile = self.output()["pandoo"].path
+        pandoo_df = pd.read_csv(pandoo_ofile, index_col=0, )
+        mlst_df = pandoo_df.loc[:, pandoo_df.columns.str.contains("MLST")]
+        from toolkit.process_mlst import main as process_mlst
+        output_mlst_df = process_mlst(mlst_df)
 
 
 if __name__ == '__main__':

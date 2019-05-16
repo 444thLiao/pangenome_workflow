@@ -95,11 +95,11 @@ def get_neighbour_genes(centre_group,num_neighbor=20):
 
 #### group specific group_92
 # order_subset_locus = get_neighbour_genes('group_92')
-for k,v in order_subset_locus.items():
-    # if k == '41296' or k == '39054':
-    print(k,'\t'.join([_ if _ is not None else 'None' for _ in v[::-1]  ]))
-    else:
-        print(k, '\t'.join([_ if _ is not None else 'None' for _ in v]))
+# for k,v in order_subset_locus.items():
+#     # if k == '41296' or k == '39054':
+#     print(k,'\t'.join([_ if _ is not None else 'None' for _ in v[::-1]  ]))
+#     else:
+#         print(k, '\t'.join([_ if _ is not None else 'None' for _ in v]))
 
 # for k,v in order_subset_locus.items():
 #     if k == '41296' or k == '39054':

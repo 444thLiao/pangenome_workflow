@@ -36,19 +36,34 @@ def get_gene_with_regin(gff_fn, regions):
     os.system("rm %s/*.gffdb" % tmp_dir)
     return all_genes
 
-def add_fea4plasmid(record,start,end,id):
 
+def add_fea4plasmid(record, start, end, id, ):
     qualifiers = {"source": "plasmid",
                   "ID": id}
 
-    top_feature = SeqFeature(FeatureLocation(start,end),
+    top_feature = SeqFeature(FeatureLocation(start, end),
                              type="plasmid_annotated",
                              strand=1,
                              qualifiers=qualifiers)
     record.features.append(top_feature)
     # inplace change
 
-def get_gff_pth(prokka_dir,sn):
+
+def add_fea2gff(record, start, end, ID, strand=1,
+                type='CDS',
+                source='annotated', **kwargs):
+    qualifiers = {"source": source,
+                  "ID": ID}
+    qualifiers.update(kwargs)
+
+    top_feature = SeqFeature(FeatureLocation(start, end),
+                             type=type,
+                             strand=strand,
+                             qualifiers=qualifiers)
+    record.features.append(top_feature)
+
+
+def get_gff_pth(prokka_dir, sn):
     # dynamic way to check the existness of gff (not robust)
     gff_p = os.path.join(prokka_dir,
                          "{sn}/{sn}.gff")

@@ -1,16 +1,18 @@
 import os
 import re
+import sys
 from collections import defaultdict
 from glob import glob
 from multiprocessing import cpu_count
 
 import pandas as pd
+from BCBio import GFF
 from Bio import SeqIO
 from tqdm import tqdm
 
-import sys
-sys.path.insert(0,os.path.dirname(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from toolkit.utils import get_locus2group, run_cmd, valid_path
+from toolkit.get_gene_info import get_gff, add_fea2gff
 
 
 def run_abricate(prokka_dir,
@@ -24,19 +26,27 @@ def run_abricate(prokka_dir,
     if thread == 0 or thread == -1:
         thread = cpu_count()
     samples2locus = defaultdict(list)
-    for ffn_pth in tqdm(glob(os.path.join(prokka_dir, "*", '*.ffn'))):  # ffn has been separated each locus into different record.
+    for ffn_pth in tqdm(glob(os.path.join(prokka_dir,
+                                          "*",
+                                          '*.ffn'))):
+        # ffn has been separated each locus into different record.
         sample_name = os.path.basename(os.path.dirname(ffn_pth))
         for db in ['card', 'argannot', 'ncbi', 'vfdb', 'vfdb_full', 'resfinder', 'plasmidfinder', 'victors']:
-            cmd = "{exe_path} {infile} --threads {thread} --db {db} --mincov {mincov} --quiet> {ofile}"
-            ofile = os.path.join(odir, sample_name, 'abricate_{db}.tab'.format(db=db))
-            valid_path(os.path.dirname(ofile), check_odir=True)
+            cmd = "{exe_path} {infile} --threads {thread} --db {db} --mincov {mincov} --quiet > {ofile}"
+            ofile = os.path.join(odir,
+                                 sample_name,
+                                 'abricate_{db}.tab'.format(db=db))
+            valid_path(ofile, check_ofile=True)
             new_cmd = cmd.format(infile=ffn_pth,
                                  db=db,
                                  exe_path=exe_path,
                                  thread=thread,
                                  mincov=mincov,
                                  ofile=ofile)
-            run_cmd(new_cmd, dry_run=dry_run, log_file=log_file)
+            if not os.path.isfile(ofile):
+                run_cmd(new_cmd,
+                        dry_run=dry_run,
+                        log_file=log_file)
             ############################################################
         samples2locus[sample_name] = [_.id for _ in SeqIO.parse(ffn_pth, format='fasta')]
     return samples2locus
@@ -60,7 +70,9 @@ def summary_abricate(odir):
     """summary output tab, and output locus2annotate and annotate2db"""
     locus2annotate = {}
     annotate2db = {}
-    for tab in tqdm(glob(os.path.join(odir, '*', "abricate_*.tab"))):
+    for tab in tqdm(glob(os.path.join(odir,
+                                      '*',
+                                      "abricate_*.tab"))):
         df = pd.read_csv(tab, sep='\t')
         seq_id = list(df.loc[:, "SEQUENCE"])
         genes = [gene_process(_) for _ in df.loc[:, 'GENE']]
@@ -86,7 +98,7 @@ def refine_abricate_output(locus2annotate, roary_dir):
         formatted_annotate = gene_process(annotate)
         if locus not in locus2group:
             # it mean the roary dir is not full
-            print(locus)
+            print("unknown group for ", locus)
             pass
         else:
             group2annotate[locus2group[locus]].append(formatted_annotate)
@@ -104,10 +116,10 @@ def refine_abricate_output(locus2annotate, roary_dir):
 
 def output_abricate_result(samples2locus,
                            locus2annotate,
-
                            annotate2db,
                            rename_genes
                            ):
+    ############################################################
     samples2genes = defaultdict(lambda: defaultdict(lambda: 0))
     locus2samples = {}
     for sample in samples2locus.keys():
@@ -119,6 +131,7 @@ def output_abricate_result(samples2locus,
                 locus2samples[locus] = sample
     for locus, annotate in locus2annotate.items():
         locus2annotate[locus] = rename_genes.get(annotate, annotate)
+    ############################################################
     locus2annotate_df = pd.DataFrame.from_dict({'gene': locus2annotate})
     locus2annotate_df.loc[:, 'db'] = [annotate2db[_] for _ in locus2annotate_df.loc[:, 'gene']]
     locus2annotate_df.loc[:, 'sample'] = [locus2samples[_] for _ in locus2annotate_df.index]
@@ -170,7 +183,41 @@ if __name__ == '__main__':
     s2g_pth = os.path.join(odir, "samples2annotate.csv")
     locus2annotate_df.to_csv(l2a_pth, index=1)
     abricate_result.to_csv(s2g_pth, index=1)
-
+    ############################################################
+    # reannotated gff
+    prepare_dict = {}
+    for sn in map(str, locus2annotate_df['sample'].unique()):
+        gff_pth = os.path.join(indir, "{sn}", '{sn}.gff').format(sn=sn)
+        gff_db = get_gff(gff_pth, mode='db')
+        gff_obj = get_gff(gff_pth, mode='bcbio')
+        # remove all existing features
+        for record in gff_obj.values():
+            record.features.clear()
+            record.annotations['sequence-region'].clear()
+            record.annotations['sequence-region'] = "%s %s %s" % (record.id, 1, len(record))
+        prepare_dict[sn] = (gff_db, gff_obj)
+    res_db = ["card", "ncbi", "resfinder", "argannot"]
+    vf_db = ["vfdb_full", "vfdb", "victors"]
+    for locus, vals in locus2annotate_df.iterrows():
+        sn = str(vals["sample"])
+        gff_db, gff_obj = prepare_dict[sn]
+        locus_info = gff_db[locus]
+        contig = locus_info.chrom
+        db = vals["db"]
+        type = "RES_gene" if db in res_db else "VF_gene"
+        add_fea2gff(gff_obj[contig],
+                    locus_info.start,
+                    locus_info.end,
+                    ID=vals["gene"],
+                    strand=-1 if locus_info.strand == '-' else 1,
+                    type=type,
+                    source="abricate",
+                    db=db)
+    for sn, vals in prepare_dict.items():
+        ogff = os.path.join(odir, sn, "%s.gff" % sn)
+        with open(ogff, 'w') as f1:
+            # import pdb;pdb.set_trace()
+            GFF.write(list(vals[1].values()), f1)
     # prokka_dir = "/home/liaoth/project/shenzhen_actineto/KL_extracted_reads/fkpA_1-lldP_region/prokka_o"
     # samples2locus = run_abricate(prokka_dir)
     # locus2annotate,annotate2db = summary_abricate(prokka_dir)

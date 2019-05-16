@@ -130,7 +130,8 @@ def redefine_mlst(mlst_df: pd.DataFrame, scheme, db=mlst_db):
     return mlst_df
 
 
-def main(mlst_df, output_mlst):
+def main(mlst_df):
+    output_mlst = {}
     schemes = set([col.split('.')[-1] for col in mlst_df.columns if '.' in col])
     scheme_df_dict = {}
     sub_df = mlst_df.loc[:, [col for col in mlst_df.columns if '.' not in col]]
@@ -142,9 +143,11 @@ def main(mlst_df, output_mlst):
             scheme = sub_df.loc[sub_df.index[0], [_ for _ in sub_df.columns if 'Scheme.' + str(scheme_idx) in _]][0]
             scheme_df_dict[scheme] = sub_df
     scheme_df_dict = {k: redefine_mlst(_df, scheme=k) for k, _df in scheme_df_dict.items()}
-    for scheme, _df in scheme_df_dict.items():
-        _df.to_csv(output_mlst.format(scheme=scheme), sep=',', index=True)
 
+    for scheme, _df in scheme_df_dict.items():
+        output_mlst[scheme] = _df
+        # _df.to_csv(output_mlst.format(scheme=scheme), sep=',', index=True)
+    return output_mlst
 
 if __name__ == '__main__':
     import argparse
@@ -152,15 +155,23 @@ if __name__ == '__main__':
 
     parse = argparse.ArgumentParser()
     parse.add_argument("-i", "--infile", help='mlst raw output df')
-    parse.add_argument("-o", "--outfile", help='')
+    parse.add_argument("-o", "--outdir", help='')
+    parse.add_argument("-p", "--prefix", help='')
     args = parse.parse_args()
-    mlst_file = args.infile
-    odir = args.outdir
+    mlst_file = os.path.abspath(args.infile)
+    odir = os.path.abspath(args.outdir)
+    prefix = args.prefix
     valid_path(mlst_file, check_size=1)
     valid_path(odir, check_odir=1)
 
     mlst_df = pd.read_csv(mlst_file,
                           sep=',',
                           index_col=0)  # todo: auto detect the sep
-    output_mlst = os.path.join(odir, '{scheme}_mlst.csv')
+    output_mlst = main(mlst_df)
+    if prefix is None:
+        prefix = os.path.basename(mlst_file).split('.')[0]
+    for scheme,odf  in output_mlst.items():
+        with open(os.path.join(odir,"{sn}_{scheme}_mlst.txt".format(sn=prefix,
+                                                                    scheme=scheme)),'w') as f1:
+            odf.to_csv(f1,index=1)
     # todo: test is it useful for mlst only which without pandoo
