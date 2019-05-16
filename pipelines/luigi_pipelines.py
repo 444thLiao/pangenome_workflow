@@ -728,7 +728,9 @@ class phigaro_summary(ISEscan_summary):
                                                                   "begin",
                                                                   "end"})].to_dict()
                 summary_df = summary_df.append(pd.DataFrame([[region,
-                                                 json.dumps(other_info)]], index=[0]))
+                                                 json.dumps(other_info)]],
+                                                            index=[sample_name],
+                                                            columns=summary_df.columns))
         summary_df.to_csv(self.output().path, sep='\t', index=0)
 
 
