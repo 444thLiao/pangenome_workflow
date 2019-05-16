@@ -25,6 +25,7 @@ def get_plasmids(indir):
         run_cmd("bwa index %s" % contig, dry_run=False, log_file='/tmp/tmp.log')
         plasmid_contig = contig.replace('/regular/',
                                         '/plasmidsSpades/') + 'sta'
+        osam = plasmid_contig.replace('.fasta','.sam')
         # regular is 'contigs.fa', plasmids must is 'contigs.fasta'
         if not os.path.isfile(plasmid_contig):
             # it may the SE data, so it should not process plasmid
@@ -32,11 +33,15 @@ def get_plasmids(indir):
         plasmid_count_dict = defaultdict(list)
         sample_name = os.path.basename(os.path.dirname(contig))
         if os.path.getsize(plasmid_contig) > 0:
-            result = check_output("bwa mem -x intractg {regular_one} {plasmid_one}".format(regular_one=contig,
-                                                                                           plasmid_one=plasmid_contig),
-                                  shell=True,
-                                  executable='/usr/bin/zsh')
-            result = result.decode('utf-8')
+            if not os.path.isfile(osam):
+                result = check_output("bwa mem -x intractg {regular_one} {plasmid_one} > {ofile}".format(regular_one=contig,
+                                                                                               plasmid_one=plasmid_contig,
+                                                                                                         ofile=osam),
+                                      shell=True,
+                                      executable='/usr/bin/zsh')
+                result = result.decode('utf-8')
+            else:
+                result = open(osam,'r').read()
             result = [_ for _ in result.split('\n') if (not _.startswith('@')) and (_) and (not _.startswith('*'))]
             match_plasmid_row = [row.split('\t')[0] for row in result]
             match_region = ["%s:%s-%s" % (row.split('\t')[2],
@@ -48,6 +53,7 @@ def get_plasmids(indir):
                 num_p = re.findall("component_([0-9]+)$",
                                    p)[0]  # get plasmids num/ID
                 if not region.startswith('*'):
+                    # it mean "A QNAME ‘*’ indicates the information is unavailable"
                     plasmid_count_dict[num_p].append(region)
         result_dict[sample_name] = plasmid_count_dict
     return result_dict
