@@ -634,6 +634,104 @@ class detect_plasmid(luigi.Task):
                            log_file=log_file_stream)
 
 
+class phigaro(ISEscan):
+    # single
+
+    def output(self):
+        final_name = "%s.out" % self.sample_name
+        ofile = os.path.join(str(self.odir),
+                             "phage_detect_result",
+                             self.sample_name,
+                             final_name)
+
+        return luigi.LocalTarget(ofile)
+
+    def run(self):
+        infile_pth = self.input().path
+
+        run_phigaro(infile_pth,
+                    ofile=self.output().path,
+                    thread=constant.p_phigaro,
+                    dry_run=self.dry_run,
+                    log_file=log_file_stream
+                    )
+
+
+class phigaro_summary(ISEscan_summary):
+
+    def requires(self):
+        required_tasks = {"phigaro": [],
+                          "prokka": [],
+                          "roary": '',
+                          "abricate": ''}
+        required_tasks["phigaro"] += [phigaro(R1=_R1,
+                                              R2=_R2,
+                                              sample_name=sn,
+                                              odir=self.odir,
+                                              dry_run=self.dry_run,
+                                              ) for sn, _R1, _R2 in self.PE_data]
+        required_tasks["phigaro"] += [phigaro(R1=_R1,
+                                              R2='',
+                                              sample_name=sn,
+                                              odir=self.odir,
+                                              dry_run=self.dry_run) for sn, _R1 in self.SE_data]
+        required_tasks["prokka"] += [prokka(R1=_R1,
+                                            R2=_R2,
+                                            sample_name=sn,
+                                            odir=self.odir,
+                                            dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
+        required_tasks["prokka"] += [prokka(R1=_R1,
+                                            R2='',
+                                            sample_name=sn,
+                                            odir=self.odir,
+                                            dry_run=self.dry_run) for sn, _R1 in self.SE_data]
+        required_tasks["abricate"] = abricate(PE_data=self.PE_data,
+                                              odir=self.odir,
+                                              dry_run=self.dry_run)
+        required_tasks["roary"] = roary(PE_data=self.PE_data,
+                                        odir=self.odir,
+                                        dry_run=self.dry_run)
+        return required_tasks
+
+    def output(self):
+        odir = os.path.dirname(os.path.dirname(self.input()["phigaro"][0].path))
+        ofile = os.path.join(odir,
+                             'phage_summary.tab')
+
+        return luigi.LocalTarget(ofile)
+
+    def run(self):
+        import json
+        from toolkit.process_phigaro import write_gff
+
+        total_samples = [sn for sn, _R1, _R2 in self.PE_data] + \
+                        [sn for sn, _R1 in self.SE_data]
+        summary_df = pd.DataFrame(
+            columns=['region',
+                     "other info"])
+
+        for phigaro_tab_pth, ori_gff, sample_name in zip(self.input()["phigaro"],
+                                                         self.input()["prokka"],
+                                                         total_samples):
+            # write new phage annotated gff
+            write_gff(phigaro_tab_pth,
+                      ori_gff)
+            # output to same path of phigaro_tab
+
+            phigaro_tab_pth = phigaro_tab_pth.path
+            phigaro_tab = pd.read_csv(phigaro_tab_pth, sep='\t')
+            for idx, vals in phigaro_tab.iterrows():
+                region = "%s:%s-%s" % (vals["scaffold"],
+                               vals["begin"],
+                               vals["end"])
+                other_info = vals.loc[set(vals.index).difference({"scaffold",
+                                        "begin",
+                                        "end"})].to_dict()
+                summary_df.append(pd.DataFrame([[region,
+                                                 json.dumps(other_info)]],index=[0]))
+        summary_df.to_csv(self.output().path,sep='\t',index=0)
+
+
 class workflow(luigi.Task):
     tab = luigi.Parameter()
     odir = luigi.Parameter()
@@ -709,7 +807,10 @@ class workflow(luigi.Task):
         require_tasks["detect_plasmid"] = detect_plasmid(PE_data=pairreads,
                                                          odir=self.odir,
                                                          dry_run=self.dry_run)
-
+        require_tasks["detect_prophage"] = phigaro_summary(PE_data=pairreads,
+                                                           SE_data=singlereads,
+                                                           odir=self.odir,
+                                                           dry_run=self.dry_run)
         return require_tasks
 
     def run(self):
