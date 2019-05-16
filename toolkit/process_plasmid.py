@@ -4,7 +4,7 @@ import sys
 from collections import defaultdict
 from glob import glob
 from subprocess import check_output
-
+import json
 import pandas as pd
 from BCBio import GFF
 from Bio import SeqIO
@@ -15,13 +15,18 @@ from toolkit.utils import run_cmd, get_locus2group, get_length_fasta, valid_path
 from toolkit.get_gene_info import get_gff, add_fea4plasmid, get_gff_pth
 
 
-def get_plasmids(indir):
-    """ indir may end with assembly_o"""
-    result_dict = {}
+def align_plasmid(indir):
+    # parse the plasmid result into a unify format of data
+    # unify format:
+    # {sample_name : [(chrom:start-end, other info),
+    #                 (chrom2:start2-end2, other info)]
+    #                 }
+    aligned_info = {}
     for contig in tqdm(glob(os.path.join(indir,
                                          'regular',
                                          '*',
                                          'contigs.fa'))):
+        # For each contig, align to corresponding assembly fasta to get matched positions.
         run_cmd("bwa index %s" % contig, dry_run=False, log_file='/tmp/tmp.log')
         plasmid_contig = contig.replace('/regular/',
                                         '/plasmidsSpades/') + 'sta'
@@ -30,33 +35,47 @@ def get_plasmids(indir):
         if not os.path.isfile(plasmid_contig):
             # it may the SE data, so it should not process plasmid
             continue
-        plasmid_count_dict = defaultdict(list)
         sample_name = os.path.basename(os.path.dirname(contig))
         if os.path.getsize(plasmid_contig) > 0:
+            # it may not find plasmid fasta
             if not os.path.isfile(osam):
-                result = check_output("bwa mem -x intractg {regular_one} {plasmid_one} > {ofile}".format(regular_one=contig,
+                sam_content = check_output("bwa mem -x intractg {regular_one} {plasmid_one} > {ofile}".format(regular_one=contig,
                                                                                                plasmid_one=plasmid_contig,
                                                                                                          ofile=osam),
                                       shell=True,
                                       executable='/usr/bin/zsh')
-                result = result.decode('utf-8')
+                sam_content = sam_content.decode('utf-8')
             else:
-                result = open(osam,'r').read()
-            result = [_ for _ in result.split('\n') if (not _.startswith('@')) and (_) and (not _.startswith('*'))]
-            match_plasmid_row = [row.split('\t')[0] for row in result]
+                sam_content = open(osam,'r').read()
+            validated_row_of_sam = [_ for _ in sam_content.split('\n') if (not _.startswith('@')) and (_) and (not _.startswith('*'))]
+
+            matched_contig_names = [re.findall("component_([0-9]+)$",
+                                    row.split('\t')[0])[0]
+                                    for row in validated_row_of_sam]  # parse the contig name of plasmid ot plasmid id
             match_region = ["%s:%s-%s" % (row.split('\t')[2],
                                           int(row.split('\t')[3]) - 1,  # convert 0-coord
-                                          int(row.split('\t')[3]) - 1 + len(row.split('\t')[9]) ) for row in result]
+                                          int(row.split('\t')[3]) - 1 + len(row.split('\t')[9]))
+                            for row in validated_row_of_sam]
+            aligned_info[sample_name] = list(zip(match_region,
+                                                 matched_contig_names ))
 
-            for p, region in zip(match_plasmid_row,
-                                 match_region):
-                num_p = re.findall("component_([0-9]+)$",
-                                   p)[0]  # get plasmids num/ID
-                if not region.startswith('*'):
-                    # it mean "A QNAME ‘*’ indicates the information is unavailable"
-                    plasmid_count_dict[num_p].append(region)
-        result_dict[sample_name] = plasmid_count_dict
-    return result_dict
+    return aligned_info
+
+def summary_plasmid(indir):
+    # summary the unify format data of plasmid result into
+    # {sample : {plasmid_ID: [region1,region2]}}
+    aligned_info = align_plasmid(indir)
+    sample2plasmid_summary = {}
+    for sample_name, regions_info in aligned_info.items():
+        plasmid_count_dict = defaultdict(list)
+        for info in regions_info:
+            region,other_info = info
+            if not region.startswith('*'):
+                # it mean "A QNAME ‘*’ indicates the information is unavailable"
+                plasmid_count_dict[other_info].append(region)
+        sample2plasmid_summary[sample_name] = plasmid_count_dict
+    return sample2plasmid_summary
+
 
 
 def get_gene_in_plasmids(plasmids_dict, locus2group, prokka_dir):
