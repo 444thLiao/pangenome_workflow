@@ -400,7 +400,13 @@ def post_analysis(workflow_task):
     os.system("cp %s %s" % (os.path.join(IS_dir,"*","*.gff"),
                             new_IS_dir))
     ############################################################
-    #
+    # phage
+    IS_summary_file = workflow_task.output()["ISEscan_summary"].path
+    IS_dir = os.path.dirname(IS_summary_file)
+    new_IS_dir = os.path.join(new_gff_odir, "IS_gff")
+    valid_path(new_IS_dir, check_odir=1)
+    os.system("cp %s %s" % (os.path.join(IS_dir,"*","*.gff"),
+                            new_IS_dir))
 
 
 

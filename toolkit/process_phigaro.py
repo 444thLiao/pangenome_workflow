@@ -15,7 +15,7 @@ from toolkit.utils import run_cmd, get_locus2group, get_length_fasta, valid_path
 from toolkit.get_gene_info import get_gff, add_fea4plasmid, get_gff_pth
 from toolkit.process_plasmid import get_gene_in_plasmids
 
-def read_accessory(roary_dir,abricate_file,prokka_o):
+def get_accessory(roary_dir,abricate_file,prokka_o):
     from toolkit.process_IS import get_IS_CDS, get_locus2group
     locus2group = get_locus2group(roary_dir)
 

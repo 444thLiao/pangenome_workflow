@@ -641,7 +641,7 @@ class phigaro(ISEscan):
         final_name = "%s.out" % self.sample_name
         ofile = os.path.join(str(self.odir),
                              "phage_detect_result",
-                             self.sample_name,
+                             str(self.sample_name),
                              final_name)
 
         return luigi.LocalTarget(ofile)
@@ -722,14 +722,14 @@ class phigaro_summary(ISEscan_summary):
             phigaro_tab = pd.read_csv(phigaro_tab_pth, sep='\t')
             for idx, vals in phigaro_tab.iterrows():
                 region = "%s:%s-%s" % (vals["scaffold"],
-                               vals["begin"],
-                               vals["end"])
+                                       vals["begin"],
+                                       vals["end"])
                 other_info = vals.loc[set(vals.index).difference({"scaffold",
-                                        "begin",
-                                        "end"})].to_dict()
+                                                                  "begin",
+                                                                  "end"})].to_dict()
                 summary_df.append(pd.DataFrame([[region,
-                                                 json.dumps(other_info)]],index=[0]))
-        summary_df.to_csv(self.output().path,sep='\t',index=0)
+                                                 json.dumps(other_info)]], index=[0]))
+        summary_df.to_csv(self.output().path, sep='\t', index=0)
 
 
 class workflow(luigi.Task):
@@ -815,11 +815,7 @@ class workflow(luigi.Task):
 
     def run(self):
         # post pipelines
-        pandoo_ofile = self.output()["pandoo"].path
-        pandoo_df = pd.read_csv(pandoo_ofile, index_col=0, )
-        mlst_df = pandoo_df.loc[:, pandoo_df.columns.str.contains("MLST")]
-        from toolkit.process_mlst import main as process_mlst
-        output_mlst_df = process_mlst(mlst_df)
+        post_analysis(self)
 
 
 if __name__ == '__main__':
