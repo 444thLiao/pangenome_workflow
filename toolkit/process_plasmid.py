@@ -47,7 +47,8 @@ def get_plasmids(indir):
                                  match_region):
                 num_p = re.findall("component_([0-9]+)$",
                                    p)[0]  # get plasmids num/ID
-                plasmid_count_dict[num_p].append(region)
+                if not region.startswith('*'):
+                    plasmid_count_dict[num_p].append(region)
         result_dict[sample_name] = plasmid_count_dict
     return result_dict
 
