@@ -127,8 +127,10 @@ def get_gene_in_plasmids(plasmids_dict, locus2group, prokka_dir):
 
 
 def main(indir, roary_dir, prokka_dir, odir):
-    only_p = os.path.join(odir, "onlyplasmid")
-    fullwithannotated = os.path.join(odir, "fullWithAnnotated")
+    only_p = os.path.join(odir,
+                          "onlyplasmid")
+    fullwithannotated = os.path.join(odir,
+                                     "fullWithAnnotated")
     valid_path([only_p, fullwithannotated], check_odir=1)
 
     plasmids_dict = get_plasmids(indir)
