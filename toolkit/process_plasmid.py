@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from toolkit.utils import run_cmd, get_locus2group, get_length_fasta, valid_path
-from toolkit.get_gene_info import get_gff,add_fea4plasmid
+from toolkit.get_gene_info import get_gff, add_fea4plasmid, get_gff_pth
 
 
 def get_plasmids(indir):
@@ -37,11 +37,11 @@ def get_plasmids(indir):
                                   shell=True,
                                   executable='/usr/bin/zsh')
             result = result.decode('utf-8')
-            result = [_ for _ in result.split('\n') if not _.startswith('@') and _]
+            result = [_ for _ in result.split('\n') if (not _.startswith('@')) and (_) and (not _.startswith('*'))]
             match_plasmid_row = [row.split('\t')[0] for row in result]
             match_region = ["%s:%s-%s" % (row.split('\t')[2],
                                           int(row.split('\t')[3]) - 1,  # convert 0-coord
-                                          int(row.split('\t')[3]) - 1 + len(row.split('\t')[9])) for row in result]
+                                          int(row.split('\t')[3]) - 1 + len(row.split('\t')[9]) ) for row in result]
 
             for p, region in zip(match_plasmid_row,
                                  match_region):
@@ -57,14 +57,9 @@ def get_gene_in_plasmids(plasmids_dict, locus2group, prokka_dir):
     plasmids_records = {}
     full_records = {}
     for sn, p2contig in plasmids_dict.items():
-        gff_p = os.path.join(prokka_dir,
-                             "{sn}/{sn}.gff")
-        if not os.path.isfile(gff_p.format(sn=sn)):
-            gff_p = os.path.join(prokka_dir, "{sn}.gff")
-        if not os.path.isfile(gff_p.format(sn=sn)):
-            raise Exception("weird prokka input")
+        gff_pth = get_gff_pth(prokka_dir, sn)
         # avoid missing formatted prokka dir.
-        gff_dict = get_gff(gff_p.format(sn=sn), mode='bcbio')
+        gff_dict = get_gff(gff_pth, mode='bcbio')
 
         plasmids_genes[sn] = {}
         plasmids_records[sn] = []
@@ -81,7 +76,7 @@ def get_gene_in_plasmids(plasmids_dict, locus2group, prokka_dir):
                 subrecord.id = 'plasmid%s_piece%s' % (str(plasmid),
                                                       str(count))
                 subrecord.name = subrecord.description = ''
-                add_fea4plasmid(record, start, end,subrecord.id )
+                add_fea4plasmid(record, start, end, subrecord.id)
                 for cds in subrecord.features:
                     cds_id = cds.id
                     group = locus2group.get(cds_id, "removed")
@@ -97,7 +92,7 @@ def get_gene_in_plasmids(plasmids_dict, locus2group, prokka_dir):
         plasmids_records[sn] = list(sorted(plasmids_records[sn],
                                            key=lambda record: tuple(map(int, record.id.strip('plasmid').split('_piece')))))
         full_records[sn] = list(gff_dict.values())
-    return plasmids_genes, plasmids_records,full_records
+    return plasmids_genes, plasmids_records, full_records
 
 
 def main(indir, roary_dir, prokka_dir, odir):
@@ -108,8 +103,8 @@ def main(indir, roary_dir, prokka_dir, odir):
     plasmids_dict = get_plasmids(indir)
     locus2group = get_locus2group(roary_dir)
     plasmids_genes, plasmids_records, full_records = get_gene_in_plasmids(plasmids_dict,
-                                                            locus2group,
-                                                            prokka_dir)
+                                                                          locus2group,
+                                                                          prokka_dir)
     samples_name = plasmids_dict.keys()
 
     summary_df = pd.DataFrame(
@@ -121,19 +116,22 @@ def main(indir, roary_dir, prokka_dir, odir):
                  'total length of plasmids',
                  'ratio of plasmid'])
     for sample_name in samples_name:
-        contig_pth = os.path.join(indir, 'regular', sample_name, 'contigs.fa')
+        contig_pth = os.path.join(indir,
+                                  'regular',
+                                  sample_name,
+                                  'contigs.fa')
         num_contigs = int(check_output("grep -c '^>' %s " % contig_pth, shell=True))
         length_contigs = sum(get_length_fasta(contig_pth).values())
-        # two different way to parse prokka output gff.
-        gff_p = os.path.join(prokka_dir, "{sn}/{sn}.gff")
-        if not os.path.isfile(gff_p.format(sn=sample_name)):
-            gff_p = os.path.join(prokka_dir, "{sn}.gff")
-        if not os.path.isfile(gff_p.format(sn=sample_name)):
-            raise Exception("weird prokka input")
 
-        gff_pth = gff_p.format(sn=sample_name)
+        gff_pth = get_gff_pth(prokka_dir, sample_name)
+        # avoid missing formatted prokka dir.
+
         num_CDS = int(check_output("grep -c 'CDS' %s " % gff_pth, shell=True))
-        plasmidcontig_pth = os.path.join(indir, 'plasmidsSpades', sample_name, 'contigs.fa')
+        plasmidcontig_pth = os.path.join(indir,
+                                         'plasmidsSpades',
+                                         sample_name,
+                                         'contigs.fa')
+
         if os.path.getsize(plasmidcontig_pth) == 0:
             length_plasmidscontigs = num_contigs4plasmid = 0
         else:
@@ -158,7 +156,6 @@ def main(indir, roary_dir, prokka_dir, odir):
 
             with open(os.path.join(fullwithannotated, "%s_plasmidannotated.gff" % sample_name), 'w') as f1:
                 GFF.write(full_records[sample_name], f1)
-    # todo: process output; except a statistic info(summary df), (plasmids_genes) also important. Cut corresponding gff/region into files.
     summary_pth = os.path.join(odir, "plasmid_summary.csv")
     summary_df.to_csv(summary_pth, sep=',')
 
@@ -177,7 +174,6 @@ if __name__ == '__main__':
     odir = os.path.abspath(args.outdir)
     roary_dir = os.path.abspath(args.roary_dir)
     prokka_dir = os.path.abspath(args.prokka_dir)
-    # import pdb;pdb.set_trace()
-    # import code;code.interact(local=vars())
+
     os.makedirs(odir, exist_ok=True)
     main(indir, roary_dir, prokka_dir, odir)

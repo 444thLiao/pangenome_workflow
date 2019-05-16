@@ -26,7 +26,7 @@ def check_exe():
                       abricate=abricate_path,
                       abricate_py=abricate_py_path,
                       )
-
+    # todo: uncompleted check need to check it useful or not
     for software in sorted(check_list):
         path = check_exists(check_list[software])
 
@@ -39,7 +39,7 @@ def check_exe():
 
 
 def auto_update_exe():
-    # todo
+    # todo: use which or others to auto implement exe
     check_list = dict(fastqc=fastqc_path,
                       multiqc=multiqc_path,
                       trimmomatic="java -jar " + trimmomatic_jar_path,
@@ -57,7 +57,6 @@ def auto_update_exe():
     pass
 
 
-# todo: check output valida process, and unify it.
 def run_fastqc(in_files,
                odir,
                exe_path=fastqc_path,

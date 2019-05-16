@@ -47,3 +47,14 @@ def add_fea4plasmid(record,start,end,id):
                              qualifiers=qualifiers)
     record.features.append(top_feature)
     # inplace change
+
+def get_gff_pth(prokka_dir,sn):
+    # dynamic way to check the existness of gff (not robust)
+    gff_p = os.path.join(prokka_dir,
+                         "{sn}/{sn}.gff")
+    if not os.path.isfile(gff_p.format(sn=sn)):
+        gff_p = os.path.join(prokka_dir, "{sn}.gff")
+    if not os.path.isfile(gff_p.format(sn=sn)):
+        raise Exception("weird prokka input")
+
+    return gff_p.format(sn=sn)
