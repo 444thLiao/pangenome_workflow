@@ -13,6 +13,8 @@ __pycache__/
 temp-plot.html
 pipelines/test/
 pipelines/constant_str.py
+project_specific/
+
 # C extensions
 *.so
 

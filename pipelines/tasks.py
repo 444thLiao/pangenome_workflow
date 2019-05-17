@@ -6,7 +6,7 @@ from glob import glob
 import pandas as pd
 from BCBio import GFF
 
-from toolkit.process_region_annotated import get_accessory_obj, write_new_gff, cut_old_gff, summary_into_matrix, summary_statistic
+from toolkit.process_region_annotated import *
 from toolkit.utils import run_cmd, valid_path
 from .constant_str import *
 
