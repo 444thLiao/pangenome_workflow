@@ -435,9 +435,9 @@ def post_analysis(workflow_task):
             with open(os.path.join(annotated_gff_odir,
                                    filename), 'w') as f1:
                 GFF.write(list(annotated_sample2gff[sn].values()), f1)
-        with open(os.path.join(summary_odir, "%s_annotated_matrix.csv"), 'w') as f1:
+        with open(os.path.join(summary_odir, "%s_annotated_matrix.csv" % name), 'w') as f1:
             samples2annotated_df.to_csv(f1, sep=',', index=1)
-        with open(os.path.join(summary_odir, "%s_statistic.csv"), 'w') as f1:
+        with open(os.path.join(summary_odir, "%s_statistic.csv" % name), 'w') as f1:
             summary_df.to_csv(f1, sep=',', index=1)
 
     ############################################################
