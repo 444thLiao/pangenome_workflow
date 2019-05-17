@@ -1,15 +1,17 @@
+import copy
 import json
 import os
 import sys
-from subprocess import check_output
 from collections import defaultdict
+from subprocess import check_output
+
 import pandas as pd
 from BCBio import GFF
 from Bio import SeqIO
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from toolkit.get_gene_info import add_fea2gff
-from toolkit.utils import get_length_fasta, valid_path,get_locus2group
+from toolkit.utils import get_length_fasta, valid_path, get_locus2group
 from toolkit.get_gene_info import get_gff, get_gff_pth
 
 
@@ -49,8 +51,6 @@ def get_accessory_obj(roary_dir,
     return locus2group, locus2annotate, sample2gff
 
 
-
-
 def write_new_gff(unify_regions_pth,
                   sample2gff,
                   source="software"):
@@ -58,8 +58,8 @@ def write_new_gff(unify_regions_pth,
     # do not subset the gff file, we just remove all existing features
     # and add regions base annotation into it
     # return a list of data
-    unify_regions = pd.read_csv(unify_regions_pth, sep='\t', index_col=0,dtype=str)
-    new_sample2gff = sample2gff.copy(deep=True)
+    unify_regions = pd.read_csv(unify_regions_pth, sep='\t', index_col=0, dtype=str)
+    new_sample2gff = copy.deepcopy(sample2gff)
 
     for region_ID, vals in unify_regions.iterrows():
         region = vals["region"]
@@ -73,7 +73,7 @@ def write_new_gff(unify_regions_pth,
         record = empty_gff_obj[contig]
 
         formatted_ID = region_ID
-        if other_info:
+        if type(other_info) == str:
             extra_annotated = json.loads(other_info)
         else:
             extra_annotated = {}
@@ -91,21 +91,22 @@ def write_new_gff(unify_regions_pth,
     return sample2gff_records
 
 
-def alter_old_gff(unify_regions_pth,
-                  sample2gff,
-                  source,
-                  locus2annotate=None):
+def cut_old_gff(unify_regions_pth,
+                sample2gff,
+                source,
+                locus2annotate=None):
     # sample2gff must be annotated
     # cut the full length gff into small region of gff
     # and annotated these region (it could not see the neighbour gene)
 
-    unify_regions = pd.read_csv(unify_regions_pth, sep='\t', index_col=0,dtype=str)
-    annotated_sample2gff = sample2gff.copy(deep=True)
-
+    unify_regions = pd.read_csv(unify_regions_pth, sep='\t', index_col=0, dtype=str)
+    annotated_sample2gff = copy.deepcopy(sample2gff)
+    sample2gff_records = {}
     for sample in unify_regions["sample"].unique():
         sample = str(sample)
-        sub_regions_df = unify_regions.loc[unify_regions["sample"]==sample,:]
+        sub_regions_df = unify_regions.loc[unify_regions["sample"] == sample, :]
         annotated_contig2record = annotated_sample2gff[sample]
+        sample2gff_records[sample] = []
         for region_ID, vals in sub_regions_df.iterrows():
             region = vals["region"]
             other_info = vals["other info"]
@@ -116,61 +117,84 @@ def alter_old_gff(unify_regions_pth,
             record = annotated_contig2record[contig]
             subrecord = record[start:end]
 
-            if other_info:
+            if type(other_info) == str:
                 extra_annotated = json.loads(other_info)
             else:
                 extra_annotated = {}
             # add a full length annotated
             if source != "full":
                 add_fea2gff(subrecord,
-                        0,
-                        len(subrecord),
-                        ID=region_ID,
-                        type=source.capitalize(),
-                        source=source,
-                        **extra_annotated
-                        )
+                            0,
+                            len(subrecord),
+                            ID=region_ID,
+                            type=source.capitalize(),
+                            source=source,
+                            **extra_annotated
+                            )
             if locus2annotate is not None:
                 for cds in subrecord.features:
                     locus_id = cds.id  # locus ID
-                    annotated = locus2annotate.get(locus_id,locus_id)
+                    annotated = locus2annotate.get(locus_id, locus_id)
                     cds.qualifiers["ID"] = cds.qualifiers['locus_tag'] = [annotated]
 
-    sample2gff_records = {sample: list(gff_dict.values())
-                          for sample, gff_dict in annotated_sample2gff.items()}
+            sample2gff_records[sample].append(subrecord)
     return sample2gff_records
 
 
-def summary_into_matrix(sample2pieces,unique_by=None):
+def summary_into_matrix(sample2pieces, unique_by=None):
     # from annotated sub_gff, we could summarized a matrix for ML or other statistic analysis
     samples2genes_among_regions = defaultdict(lambda: defaultdict(int))
-    for sample, sub_gffs in sample2pieces.items():
-        for fea in [fea for sub_gff in sub_gffs for fea in sub_gff.features]:
-            if fea.type != 'remark':
+    for sample, records in sample2pieces.items():
+        for fea in [fea for record in records for fea in record.features]:
+            if fea.type == 'CDS':
                 if unique_by is None:
                     summarized_id = fea.id
                 else:
                     summarized_id = fea.qualifiers[unique_by][0]
                 samples2genes_among_regions[sample][summarized_id] += 1
-    samples2annotated_df = pd.DataFrame.from_dict(sample2pieces,orient='index')
-
+    samples2annotated_df = pd.DataFrame.from_dict(samples2genes_among_regions, orient='index')
+    samples2annotated_df = samples2annotated_df.fillna(0)
     return samples2annotated_df
 
 
-def summary_statistic(sample2pieces,group_by):
-    # from annotated sub_gff, we could summarized a matrix for ML or other statistic analysis
-    samples2genes_among_regions = defaultdict(lambda: defaultdict(int))
-    for sample, sub_gffs in sample2pieces.items():
-        for fea in [fea for sub_gff in sub_gffs for fea in sub_gff.features]:
-            if fea.type != 'remark':
-                if unique_by is None:
-                    summarized_id = fea.id
-                else:
-                    summarized_id = fea.qualifiers[unique_by][0]
-                samples2genes_among_regions[sample][summarized_id] += 1
-    samples2annotated_df = pd.DataFrame.from_dict(sample2pieces, orient='index')
+def summary_statistic(ori_sample2gff,
+                      region_sample2gff,
+                      name):
+    summary_df = pd.DataFrame(
+        columns=['total contigs',
+                 'total CDS',
+                 'total length',
+                 "num of %s" % name,
+                 'num of contig have %s' % name,
+                 'num CDS covered by %s' % name,
+                 'total length of %s' % name
+                 ])
 
-    return samples2annotated_df
+    for sample, ori_records in ori_sample2gff.items():
+        num_contig = len(ori_records)
+        num_CDS = sum([len(record.features) for record in ori_records.values()])
+        total_length = sum([record for record in ori_records.values()])
+
+        region_records = region_sample2gff[sample]
+        num_regions = len(region_records)
+        num_contig_r = len(set([region_record.id
+                                for region_record in region_records]))
+        num_cds_r = sum([len(region_record.features) - 1  # it have a full region features add by `cut_old_gff`
+                         for region_record in region_records])
+        total_length_r = sum([len(region_record) for region_record in region_records])
+
+        summary_df = summary_df.append(pd.DataFrame([[num_contig,
+                                                      num_CDS,
+                                                      total_length,
+                                                      num_regions,
+                                                      num_contig_r,
+                                                      num_cds_r,
+                                                      total_length_r]],
+                                                    index=[sample],
+                                                    columns=summary_df.columns))
+
+    return summary_df
+
 
 # def write_gff(phigaro_tab_pth, ori_gff):
 #     ori_gff = ori_gff.path

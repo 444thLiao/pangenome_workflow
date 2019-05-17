@@ -684,7 +684,8 @@ class workflow(luigi.Task):
     log_file = luigi.Parameter(default=None)
 
     def output(self):
-        pass
+        return luigi.LocalTarget(os.path.join(str(self.odir),
+                                              "pipelines_summary"))
 
     def requires(self):
         input_df = pd.read_csv(self.tab, sep='\t', index_col=0, dtype=str)
@@ -761,30 +762,6 @@ class workflow(luigi.Task):
 
     def run(self):
         # post pipelines
-        roary_dir = os.path.dirname(self.input()["fasttree"].path)
-        prokka_o = os.path.join(self.odir,
-                                   'prokka_o')
-        abricate_file = self.input()["abricate"].path
-        from toolkit.process_region_annotated import get_accessory_obj
-        locus2group, locus2annotate, sample2gff = get_accessory_obj(roary_dir,
-                      abricate_file,
-                      prokka_o)
-        merged_locus2annotate = locus2group.copy(deep=True)
-        merged_locus2annotate.update(locus2annotate)
-        ############################################################
-        summary_task_tags = ["detect_prophage",
-                             "detect_plasmid",
-                             "ISEscan_summary"]
-        summary_task_source = ["phigaro",
-                               "plasmidSpades+bwa",
-                               "isescan"]
-        for tag,source in zip(summary_task_tags,summary_task_source):
-            pth = self.output()[tag].path
-            # 1. write info to empty gff for each sample
-            # 2. extract each region with annotated info for each sample
-            # 3. summary statistic info
-            # 4. summary into matrix
-
         post_analysis(self)
 
 

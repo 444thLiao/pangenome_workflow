@@ -1,9 +1,12 @@
+import copy
 import os
 import sys
 from glob import glob
+
 import pandas as pd
+from BCBio import GFF
 
-
+from toolkit.process_region_annotated import get_accessory_obj, write_new_gff, cut_old_gff, summary_into_matrix, summary_statistic
 from toolkit.utils import run_cmd, valid_path
 from .constant_str import *
 
@@ -325,7 +328,7 @@ def run_phigaro(infile,
     cmd = phigaro_cmd.format(exe_path=phigaro_path,
                              infile=infile,
                              ofile=ofile,
-                             thread=thread,)
+                             thread=thread, )
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 
@@ -346,13 +349,96 @@ def run_gubbins(infile,
                              thread=thread)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
+
 ############################################################
+
 def post_analysis(workflow_task):
     # only ofr workflow post analysis
-    odir = workflow_task.odir
-    summary_odir = os.path.join(odir,"pipelines_summary")
-    new_gff_odir = os.path.join(odir,"pipelines_summary","new_gff")
-    valid_path(new_gff_odir,check_odir=1)
+    roary_dir = os.path.dirname(workflow_task.input()["fasttree"].path)
+    prokka_o = os.path.join(workflow_task.odir,
+                            'prokka_o')
+    abricate_file = workflow_task.input()["abricate"].path
+
+    summary_odir = workflow_task.output().path
+    valid_path(summary_odir, check_odir=1)
+    ############################################################
+    # For summary the region based annotated result
+    # 1. write info to empty gff for each sample
+    # 2. extract each region with annotated info for each sample
+    # 3. summary into matrix
+    # 4. summary statistic info
+    # prepare the accessory obj
+    locus2group, locus2annotate, sample2gff = get_accessory_obj(roary_dir,
+                                                                abricate_file,
+                                                                prokka_o)
+    empty_sample2gff = {sn: vals[1] for sn, vals in sample2gff.items()}
+    ori_sample2gff = {sn: vals[2] for sn, vals in sample2gff.items()}
+
+    merged_locus2annotate = locus2group.copy()
+    merged_locus2annotate.update(locus2annotate)
+    # merged together
+    ############
+    summary_task_tags = ["detect_prophage",
+                         "detect_plasmid",
+                         "ISEscan_summary"]
+    summary_task_source = ["phigaro",
+                           "plasmidSpades+bwa",
+                           "isescan"]
+    names = ["Prophage", "Plasmid", "IS"]
+    annotated_sample2gff = copy.deepcopy(ori_sample2gff)
+    for record in [record
+                   for contig2record in annotated_sample2gff.values()
+                   for record in contig2record.values()]:
+        for fea in record.features:
+            if fea.type == 'CDS':
+                locus_id = fea.id
+                annotated = merged_locus2annotate.get(locus_id, locus_id)
+                fea.qualifiers["ID"] = fea.qualifiers['locus_tag'] = [annotated]
+                fea.id = annotated
+    ###########
+    for tag, source, name in zip(summary_task_tags,
+                                 summary_task_source,
+                                 names):
+        pth = workflow_task.input()[tag].path
+
+        annotated_sample2gff_records = write_new_gff(pth,
+                                                     empty_sample2gff,
+                                                     source=source)
+        subset_sample2gff_records = cut_old_gff(pth,
+                                                annotated_sample2gff,
+                                                source=source)
+        samples2annotated_df = summary_into_matrix(subset_sample2gff_records,
+                                                   unique_by=None)
+        summary_df = summary_statistic(ori_sample2gff,
+                                       subset_sample2gff_records,
+                                       name
+                                       )
+        # output
+        full_gff_with_region_dir = os.path.join(summary_odir,
+                                                "gff_with_%s" % name)
+        subset_gff_with_annotated_dir = os.path.join(summary_odir,
+                                                     "gff_of_%s" % name)
+        annotated_gff_odir = os.path.join(summary_odir,
+                                          "annotated_gff")
+        valid_path([full_gff_with_region_dir,
+                    subset_gff_with_annotated_dir
+                    ], check_odir=1)
+        for sn, records in annotated_sample2gff_records.items():
+            filename = "%s.gff" % sn
+            with open(os.path.join(full_gff_with_region_dir,
+                                   filename), 'w') as f1:
+                GFF.write(records, f1)
+            with open(os.path.join(subset_gff_with_annotated_dir,
+                                   filename), 'w') as f1:
+                GFF.write(subset_sample2gff_records[sn], f1)
+            with open(os.path.join(annotated_gff_odir,
+                                   filename), 'w') as f1:
+                GFF.write(list(annotated_sample2gff[sn].values()), f1)
+        with open(os.path.join(summary_odir, "%s_annotated_matrix.csv"), 'w') as f1:
+            samples2annotated_df.to_csv(f1, sep=',', index=1)
+        with open(os.path.join(summary_odir, "%s_statistic.csv"), 'w') as f1:
+            summary_df.to_csv(f1, sep=',', index=1)
+
     ############################################################
     # mlst
     pandoo_ofile = workflow_task.input()["pandoo"].path
@@ -360,50 +446,22 @@ def post_analysis(workflow_task):
     mlst_df = pandoo_df.loc[:, pandoo_df.columns.str.contains("MLST")]
     from toolkit.process_mlst import main as process_mlst
     output_mlst_df = process_mlst(mlst_df)
-    for scheme,mlst_df in output_mlst_df.items():
-        with open(os.path.join(summary_odir,"%s_mlst.csv" % scheme),'w') as f1:
+    for scheme, mlst_df in output_mlst_df.items():
+        with open(os.path.join(summary_odir, "%s_mlst.csv" % scheme), 'w') as f1:
             mlst_df.to_csv(f1, index=1)
     ############################################################
     # abricate
     abricate_ofile = workflow_task.input()["abricate"].path
     abricate_dir = os.path.dirname(abricate_ofile)
-    new_abricate_dir = os.path.join(new_gff_odir,"abricate_annotated_gff")
-    valid_path(new_abricate_dir,check_odir=1)
-
     os.system("cp %s %s" % (abricate_ofile,
                             summary_odir))
-    os.system("cp %s %s" % (os.path.join(abricate_dir,"samples2annotate.csv"),
+    os.system("cp %s %s" % (os.path.join(abricate_dir, "samples2annotate.csv"),
                             summary_odir))
-    os.system("cp %s %s" % (os.path.join(abricate_dir,"*","*.gff"),
-                            new_abricate_dir))  # todo: not yet
     ############################################################
     # fasttree
     core_gene_tree = workflow_task.input()["fasttree"].path
     os.system("cp %s %s" % (core_gene_tree,
                             summary_odir))
-    ############################################################
-    # plasmid
-    plasmid_summary_file = workflow_task.input()["detect_plasmid"].path
-    plasmid_dir = os.path.dirname(plasmid_summary_file)
-    os.system("cp %s %s" % (os.path.join(plasmid_dir,"fullWithAnnotated"),
-                            new_gff_odir))
-    ############################################################
-    # IS
-    IS_summary_file = workflow_task.input()["ISEscan_summary"].path
-    IS_dir = os.path.dirname(IS_summary_file)
-    new_IS_dir = os.path.join(new_gff_odir, "IS_gff")
-    valid_path(new_IS_dir, check_odir=1)
-    os.system("cp %s %s" % (os.path.join(IS_dir,"*","*.gff"),
-                            new_IS_dir))
-    ############################################################
-    # phage
-    IS_summary_file = workflow_task.input()["ISEscan_summary"].path
-    IS_dir = os.path.dirname(IS_summary_file)
-    new_IS_dir = os.path.join(new_gff_odir, "IS_gff")
-    valid_path(new_IS_dir, check_odir=1)
-    os.system("cp %s %s" % (os.path.join(IS_dir,"*","*.gff"),
-                            new_IS_dir))
-
 
 
 ############################################################
