@@ -462,7 +462,7 @@ def post_analysis(workflow_task):
     abricate_gff_dir = os.path.join(summary_odir,
                                       "annotated_gff_simplified")
     valid_path([abricate_gff_dir], check_odir=1)
-    os.system("cp %s %s" % (os.path.join(summary_odir,
+    os.system("cp %s %s" % (os.path.join(abricate_dir,
                                          "*",
                                          "*.gff"),
                             abricate_gff_dir))
