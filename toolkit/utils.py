@@ -8,12 +8,16 @@ from subprocess import check_call
 import pandas as pd
 from Bio import SeqIO, Phylo
 
+
+
+
 def validate_table(df):
     if df.loc[df.index.drop_duplicates(),:].shape[0] != df.shape[0]:
         raise Exception("sample name contains duplicates")
     both_null = df.loc[(df.iloc[:,0].isna()) & (df.iloc[:,1].isna()),:]
     if both_null.shape[0] != 0:
         raise Exception("Some rows doesn't have R1 and R2. ")
+
 
 def run_cmd(cmd, dry_run=False, log_file=None, **kwargs):
     outstream = None

@@ -1,4 +1,5 @@
 import json
+import time
 
 import luigi
 
@@ -8,7 +9,6 @@ from toolkit.utils import validate_table
 
 
 # give some default parameter
-
 class fastqc(luigi.Task):
     R1 = luigi.Parameter()
     R2 = luigi.Parameter(default=None)
@@ -29,7 +29,8 @@ class fastqc(luigi.Task):
                                dry_run=self.dry_run)
 
     def output(self):
-        odir = os.path.join(self.odir, "fastqc_%s" % self.status)
+        odir = os.path.join(str(self.odir),
+                            "fastqc_%s" % self.status)
         if self.status == 'before':
             ofiles = ["%s_fastqc.zip" % os.path.basename(str(self.R1)).rsplit('.', maxsplit=2)[0],
                       "%s_fastqc.zip" % os.path.basename(str(self.R2)).rsplit('.', maxsplit=2)[0]]
@@ -52,7 +53,7 @@ class fastqc(luigi.Task):
         run_fastqc(in_files=[R1, R2],
                    odir=os.path.dirname(self.output()[0].path),
                    dry_run=self.dry_run,
-                   log_file=log_file_stream)
+                   log_file=_log_stream)
 
 
 class multiqc(luigi.Task):
@@ -106,7 +107,7 @@ class multiqc(luigi.Task):
                     fn=filename,
                     extra_str=extra_str,
                     dry_run=self.dry_run,
-                    log_file=log_file_stream)
+                    log_file=_log_stream)
 
 
 class preprocess_SE(luigi.Task):
@@ -116,23 +117,23 @@ class preprocess_SE(luigi.Task):
     sample_name = luigi.Parameter()
 
     def output(self):
-        formatted_file = os.path.join(self.odir,
+        formatted_file = os.path.join(str(self.odir),
                                       "cleandata",
                                       "%s.fasta" % self.sample_name)
         return luigi.LocalTarget(formatted_file)
 
     def run(self):
-        formatted_file = os.path.join(self.odir,
+        formatted_file = os.path.join(str(self.odir),
                                       "cleandata",
                                       "%s.fasta" % self.sample_name)
-        if not os.path.isfile(self.R1):
+        if not os.path.isfile(str(self.R1)):
             raise Exception
         valid_path(os.path.dirname(formatted_file), check_odir=True)
 
         run_cmd("ln -s '{ori}' {new}".format(ori=self.R1,
                                              new=self.output().path),
                 dry_run=self.dry_run,
-                log_file=log_file_stream)
+                log_file=_log_stream)
 
 
 class trimmomatic(luigi.Task):
@@ -145,10 +146,10 @@ class trimmomatic(luigi.Task):
     def output(self):
         # two files which are clean R1,R2.
         # return [luigi.LocalTarget(f) for f in ofiles]
-        ofile1 = os.path.join(self.odir,
+        ofile1 = os.path.join(str(self.odir),
                               "cleandata",
                               str(self.sample_name) + '_R1.clean.fq.gz')
-        ofile2 = os.path.join(self.odir,
+        ofile2 = os.path.join(str(self.odir),
                               "cleandata",
                               str(self.sample_name) + '_R2.clean.fq.gz')
         return [luigi.LocalTarget(ofile1),
@@ -162,7 +163,7 @@ class trimmomatic(luigi.Task):
                         sample_name=self.sample_name,
                         thread=constant.p_trimmomatic,  # todo: determine the thread
                         dry_run=self.dry_run,
-                        log_file=log_file_stream
+                        log_file=_log_stream
                         )
         # remove the log file, too waste
         try:
@@ -196,7 +197,7 @@ class quast(luigi.Task):
 
     def output(self):
         # todo:
-        odir = os.path.join(self.odir,
+        odir = os.path.join(str(self.odir),
                             'assembly_o',
                             "regular_quast",
                             str(self.sample_name))
@@ -219,7 +220,7 @@ class quast(luigi.Task):
                   odir=os.path.dirname(self.output().path),
                   thread=constant.p_quast,  # todo: determine the thread
                   dry_run=self.dry_run,
-                  log_file=log_file_stream)
+                  log_file=_log_stream)
 
 
 class shovill(luigi.Task):
@@ -275,7 +276,7 @@ class shovill(luigi.Task):
                     spades_extra_options=spades_extra_options,
                     extra_option=extra_option,
                     dry_run=self.dry_run,
-                    log_file=log_file_stream
+                    log_file=_log_stream
                     )
 
 
@@ -301,7 +302,7 @@ class prokka(luigi.Task):
                            status='regular')
 
     def output(self):
-        odir = os.path.join(self.odir,
+        odir = os.path.join(str(self.odir),
                             "prokka_o",
                             str(self.sample_name))
         return luigi.LocalTarget(os.path.join(odir,
@@ -313,7 +314,7 @@ class prokka(luigi.Task):
         run_prokka(infile=prokka_in_file,
                    odir=os.path.dirname(self.output().path),
                    dry_run=self.dry_run,
-                   log_file=log_file_stream)
+                   log_file=_log_stream)
 
 
 class roary(luigi.Task):
@@ -330,7 +331,7 @@ class roary(luigi.Task):
                        dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
 
     def output(self):
-        odir = os.path.join(self.odir, "all_roary_o")
+        odir = os.path.join(str(self.odir), "all_roary_o")
         return [luigi.LocalTarget(os.path.join(odir, "core_gene_alignment.aln")),
                 luigi.LocalTarget(os.path.join(odir, "clustered_proteins"))]
 
@@ -339,7 +340,7 @@ class roary(luigi.Task):
                   os.path.dirname(self.output()[0].path),
                   thread=constant.p_roary,  # todo: determine the thread
                   dry_run=self.dry_run,
-                  log_file=log_file_stream)
+                  log_file=_log_stream)
 
 
 class fasttree(luigi.Task):
@@ -361,7 +362,7 @@ class fasttree(luigi.Task):
         run_fasttree(self.input()[0].path,
                      self.output().path,
                      dry_run=self.dry_run,
-                     log_file=log_file_stream)
+                     log_file=_log_stream)
 
 
 class pandoo(luigi.Task):
@@ -416,7 +417,7 @@ class pandoo(luigi.Task):
                    odir=os.path.dirname(self.output().path),
                    thread=constant.p_pandoo,  # todo: determine the thread
                    dry_run=self.dry_run,
-                   log_file=log_file_stream)
+                   log_file=_log_stream)
 
 
 class abricate(luigi.Task):
@@ -454,7 +455,7 @@ class abricate(luigi.Task):
                      thread=constant.p_abricate,  # todo: determine the thread
                      mincov=constant.mincov_abricate,  # todo
                      dry_run=self.dry_run,
-                     log_file=log_file_stream)
+                     log_file=_log_stream)
 
 
 class ISEscan(luigi.Task):
@@ -495,7 +496,7 @@ class ISEscan(luigi.Task):
                     odir=os.path.dirname(os.path.dirname(self.output().path)),
                     sample_name=self.sample_name,
                     dry_run=self.dry_run,
-                    log_file=log_file_stream)
+                    log_file=_log_stream)
         # For rename
         odir = os.path.dirname(self.output().path)
         for ori_file in glob(os.path.join(odir, '*')):
@@ -600,7 +601,7 @@ class detect_plasmid(luigi.Task):
         run_plasmid_detect(indir=assembly_odir,  # todo: maybe not compatiable to windows OS.
                            ofile=self.output().path,
                            dry_run=self.dry_run,
-                           log_file=log_file_stream)
+                           log_file=_log_stream)
 
 
 class phigaro(ISEscan):
@@ -622,7 +623,7 @@ class phigaro(ISEscan):
                     ofile=self.output().path,
                     thread=constant.p_phigaro,
                     dry_run=self.dry_run,
-                    log_file=log_file_stream
+                    log_file=_log_stream
                     )
 
 
@@ -681,7 +682,7 @@ class workflow(luigi.Task):
     tab = luigi.Parameter()
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter()
-    log_file = luigi.Parameter(default=None)
+    log_path = luigi.Parameter(default=None)
 
     def output(self):
         return luigi.LocalTarget(os.path.join(str(self.odir),
@@ -708,23 +709,21 @@ class workflow(luigi.Task):
         else:
             other_info = None
 
-        global log_file_stream
-        if self.log_file is None:
-            log_file = os.path.join(str(self.odir), "pipelines.log")
+        if self.log_path is not None:
+            log_pth = self.log_path
         else:
-            log_file = os.path.abspath(self.odir)
+            log_pth = os.path.join(str(self.odir),
+                                   'pipelines_%s.log' % str(int(time.time())))
 
-        log_file_stream = None
-        if os.path.isfile(log_file):
-            if os.path.getsize(log_file) == 0:
-                log_file_stream = open(log_file, 'a')
-        if log_file_stream is None:
-            log_file_stream = open(log_file, 'w')
+        _log_stream = open(log_pth, 'w')
+        global _log_stream
 
         require_tasks["fastqc_before"] = multiqc(PE_data=pairreads,
                                                  status='before',
                                                  odir=self.odir,
-                                                 dry_run=self.dry_run)
+                                                 dry_run=self.dry_run,
+
+                                                 )
         require_tasks["fastqc_after"] = multiqc(PE_data=pairreads,
                                                 status='after',
                                                 odir=self.odir,
@@ -763,6 +762,7 @@ class workflow(luigi.Task):
     def run(self):
         # post pipelines
         post_analysis(self)
+        _log_stream.close()
 
 
 if __name__ == '__main__':
@@ -774,7 +774,7 @@ if __name__ == '__main__':
     #             workers=5,
     #             local_scheduler=True
     #             )
-    # log_file_stream.close()
+    # _log_stream.close()
     # python -m luigi --module pipelines.luigi_pipelines workflow --tab /home/liaoth/project/genome_pipelines/pipelines/test/test_input.tab --odir /home/liaoth/project/genome_pipelines/pipelines/test/test_luigi  --parallel-scheduling --workers 12
     # local cmd
 
