@@ -15,6 +15,26 @@ from toolkit.utils import run_cmd, get_locus2group, get_length_fasta, valid_path
 from toolkit.get_gene_info import get_gff, add_fea4plasmid, get_gff_pth
 from toolkit.process_plasmid import get_gene_in_plasmids
 
+def get_accessory(roary_dir,abricate_file,prokka_o):
+    from toolkit.process_IS import get_IS_CDS, get_locus2group
+    locus2group = get_locus2group(roary_dir)
+
+    locus2annotate_df = pd.read_csv(abricate_file, sep=',', index_col=0)
+    locus2annotate = locus2annotate_df.loc[:, 'gene'].to_dict()
+
+    prepare_dict = {}
+    for sn in map(str, locus2annotate_df['sample'].unique()):
+        gff_pth = os.path.join(prokka_o, "{sn}", '{sn}.gff').format(sn=sn)
+        gff_db = get_gff(gff_pth, mode='db')
+        gff_obj = get_gff(gff_pth, mode='bcbio')
+        # remove all existing features
+        for record in gff_obj.values():
+            record.features.clear()
+            record.annotations['sequence-region'].clear()
+            record.annotations['sequence-region'] = "%s %s %s" % (record.id, 1, len(record))
+        prepare_dict[sn] = (gff_db, gff_obj)
+
+    return locus2group,locus2annotate,prepare_dict
 
 def write_gff(phigaro_tab_pth, ori_gff):
     ori_gff = ori_gff.path

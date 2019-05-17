@@ -6,6 +6,7 @@ from Bio.SeqFeature import SeqFeature, FeatureLocation
 
 tmp_dir = '/tmp'
 
+
 def get_gff(gff_fn, mode='db'):
     if mode == 'db':
         dbfn = os.path.join(tmp_dir,
@@ -51,7 +52,6 @@ def add_fea4plasmid(record, start, end, id, ):
 def add_fea2gff(record, start, end, ID, strand=1,
                 type='CDS',
                 source='annotated', **kwargs):
-    # inplace change the record
     qualifiers = {"source": source,
                   "ID": ID}
     qualifiers.update(kwargs)
