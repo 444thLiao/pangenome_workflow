@@ -456,8 +456,16 @@ def post_analysis(workflow_task):
     abricate_dir = os.path.dirname(abricate_ofile)
     os.system("cp %s %s" % (abricate_ofile,
                             summary_odir))
-    os.system("cp %s %s" % (os.path.join(abricate_dir, "samples2annotate.csv"),
+    os.system("cp %s %s" % (os.path.join(abricate_dir,
+                                         "samples2annotate.csv"),
                             summary_odir))
+    abricate_gff_dir = os.path.join(summary_odir,
+                                      "annotated_gff_simplified")
+    valid_path([abricate_gff_dir], check_odir=1)
+    os.system("cp %s %s" % (os.path.join(abricate_gff_dir,
+                                         "*",
+                                         "*.gff"),
+                            abricate_gff_dir))
     ############################################################
     # fasttree
     core_gene_tree = workflow_task.input()["fasttree"].path

@@ -135,8 +135,11 @@ def output_abricate_result(samples2locus,
     locus2annotate_df = pd.DataFrame.from_dict({'gene': locus2annotate})
     locus2annotate_df.loc[:, 'db'] = [annotate2db[_] for _ in locus2annotate_df.loc[:, 'gene']]
     locus2annotate_df.loc[:, 'sample'] = [locus2samples[_] for _ in locus2annotate_df.index]
-    abricate_result = pd.DataFrame.from_dict(samples2genes, orient='index')
-    abricate_result.loc['db', :] = [annotate2db[_] for _ in abricate_result.columns]
+    abricate_result = pd.DataFrame.from_dict(samples2genes,
+                                             orient='index')
+    abricate_result = abricate_result.fillna(0)
+    abricate_result.loc['db', :] = [annotate2db[_]
+                                    for _ in abricate_result.columns]
 
     return locus2annotate_df, abricate_result
 
@@ -216,7 +219,6 @@ if __name__ == '__main__':
     for sn, vals in prepare_dict.items():
         ogff = os.path.join(odir, sn, "%s.gff" % sn)
         with open(ogff, 'w') as f1:
-            # import pdb;pdb.set_trace()
             GFF.write(list(vals[1].values()), f1)
     # prokka_dir = "/home/liaoth/project/shenzhen_actineto/KL_extracted_reads/fkpA_1-lldP_region/prokka_o"
     # samples2locus = run_abricate(prokka_dir)
