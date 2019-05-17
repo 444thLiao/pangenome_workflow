@@ -421,7 +421,8 @@ def post_analysis(workflow_task):
         annotated_gff_odir = os.path.join(summary_odir,
                                           "annotated_gff")
         valid_path([full_gff_with_region_dir,
-                    subset_gff_with_annotated_dir
+                    subset_gff_with_annotated_dir,
+                    annotated_gff_odir
                     ], check_odir=1)
         for sn, records in annotated_sample2gff_records.items():
             filename = "%s.gff" % sn

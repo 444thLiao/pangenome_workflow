@@ -171,18 +171,22 @@ def summary_statistic(ori_sample2gff,
                  ])
 
     for sample, ori_records in ori_sample2gff.items():
-        num_contig = len(ori_records)
+        num_contig = len(ori_records.keys())
         num_CDS = sum([len(record.features) for record in ori_records.values()])
-        total_length = sum([record for record in ori_records.values()])
+        total_length = sum([len(record) for record in ori_records.values()])
 
-        region_records = region_sample2gff[sample]
-        num_regions = len(region_records)
-        num_contig_r = len(set([region_record.id
-                                for region_record in region_records]))
-        num_cds_r = sum([len(region_record.features) - 1  # it have a full region features add by `cut_old_gff`
-                         for region_record in region_records])
-        total_length_r = sum([len(region_record) for region_record in region_records])
-
+        if sample in region_sample2gff:
+            region_records = region_sample2gff[sample]
+            num_regions = len(region_records)
+            num_contig_r = len(set([region_record.id
+                                    for region_record in region_records]))
+            num_cds_r = sum([len(region_record.features) - 1  # it have a full region features add by `cut_old_gff`
+                             for region_record in region_records])
+            total_length_r = sum([len(region_record)
+                                  for region_record in region_records])
+        else:
+            num_regions = num_contig_r = num_cds_r = total_length_r = 0
+            
         summary_df = summary_df.append(pd.DataFrame([[num_contig,
                                                       num_CDS,
                                                       total_length,
