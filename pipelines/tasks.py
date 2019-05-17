@@ -293,20 +293,16 @@ def run_ISEscan(infile,
 
 
 def run_plasmid_detect(indir,
-                       roary_dir,
-                       prokka_dir,
-                       odir,
+                       ofile,
                        dry_run=False,
                        log_file=None):
     if not dry_run:
-        valid_path(indir, check_dir=True)
-    valid_path(odir, check_odir=True)
+        valid_path(indir, check_dir=1)
+    valid_path(ofile, check_ofile=1)
 
     cmd = plasmid_detect_cmd.format(py_path=plasmid_detect_path,
                                     indir=indir,
-                                    roary_dir=roary_dir,
-                                    prokka_dir=prokka_dir,
-                                    odir=odir)
+                                    ofile=ofile)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 

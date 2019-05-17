@@ -513,10 +513,7 @@ class ISEscan_summary(luigi.Task):
     dry_run = luigi.BoolParameter()
 
     def requires(self):
-        required_tasks = {"IS_scan": [],
-                          "prokka": [],
-                          "roary": '',
-                          "abricate": ''}
+        required_tasks = {"IS_scan": []}
         required_tasks["IS_scan"] += [ISEscan(R1=_R1,
                                               R2=_R2,
                                               sample_name=sn,
@@ -528,60 +525,49 @@ class ISEscan_summary(luigi.Task):
                                               sample_name=sn,
                                               odir=self.odir,
                                               dry_run=self.dry_run) for sn, _R1 in self.SE_data]
-        required_tasks["prokka"] += [prokka(R1=_R1,
-                                            R2=_R2,
-                                            sample_name=sn,
-                                            odir=self.odir,
-                                            dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
-        required_tasks["prokka"] += [prokka(R1=_R1,
-                                            R2='',
-                                            sample_name=sn,
-                                            odir=self.odir,
-                                            dry_run=self.dry_run) for sn, _R1 in self.SE_data]
-        required_tasks["abricate"] = abricate(PE_data=self.PE_data,
-                                              odir=self.odir,
-                                              dry_run=self.dry_run)
-        required_tasks["roary"] = roary(PE_data=self.PE_data,
-                                        odir=self.odir,
-                                        dry_run=self.dry_run)
-        # fixed... "Self adjusted ISEscan" would work.....
         return required_tasks
 
     def output(self):
         odir = os.path.dirname(os.path.dirname(self.input()["IS_scan"][0].path))
         ofile = os.path.join(odir,
-                             'IS_result.sum')
+                             'IS_summary.tab')
 
         return luigi.LocalTarget(ofile)
 
     def run(self):
+        from toolkit.get_gene_info import get_gff
         total_samples = [sn for sn, _R1, _R2 in self.PE_data] + \
                         [sn for sn, _R1 in self.SE_data]
-        from toolkit.process_IS import get_IS_CDS, get_locus2group
-        roary_dir = os.path.dirname(self.input()["roary"][0].path)
-        locus2group = get_locus2group(roary_dir)
-
-        abricate_file = self.input()["abricate"].path
-        locus2annotate_df = pd.read_csv(abricate_file, sep=',', index_col=0)
-        locus2annotate = locus2annotate_df.loc[:, 'gene'].to_dict()
-        final_r = {}
-        for IS_gff, ori_gff, sample_name in zip(self.input()["IS_scan"],
-                                                self.input()["prokka"],
-                                                total_samples
-                                                ):
-            ori_gff = ori_gff.path
-            IS_gff = IS_gff.path
-            IS2CDS, IS2INFO = get_IS_CDS(ori_gff, IS_gff, locus2annotate, locus2group)
-            final_r[sample_name] = (IS2CDS, IS2INFO)
-        # {sample: ({IS_id: [group1,group2]},
-        #           {IS_id: IS_info_dict})
-        ready2df = {sn: {ISgroup: ISgroups.count(ISgroup)
-                         for ISgroups in info[0].values()
-                         for ISgroup in ISgroups}
-                    for sn, info in final_r.items()}
-        result_df = pd.DataFrame.from_dict(ready2df, orient='index')
-        result_df = result_df.fillna(0)
-        result_df.to_csv(self.output().path, sep=',', index=1)
+        summary_df = pd.DataFrame(
+            columns=["sample",
+                     "region",
+                     "other info"])
+        for IS_gff, sample_name in zip(self.input()["IS_scan"], total_samples):
+            gff_dict = get_gff(IS_gff.path,
+                               mode='bcbio')
+            for contig, record in gff_dict.items():
+                IS_id = region = 'None'
+                other_info = {}
+                for fea in record.features:
+                    if fea.type == "insertion_sequence":
+                        IS_id = fea.id
+                        region = "%s:%s-%s" % (record.id,
+                                               fea.location.start.real,
+                                               fea.location.end.real)
+                        other_info = {}
+                        other_info["family"] = fea.qualifiers["family"][0]
+                        other_info["cluster"] = fea.qualifiers["cluster"][0]
+                    else:
+                        if fea.id == IS_id + '_TIR':
+                            other_info["length_TIR"] = len(fea)
+                    if IS_id not in summary_df.index and IS_id != 'None':
+                        # if new IS_id,it must have region
+                        summary_df = summary_df.append(pd.DataFrame([[sample_name,
+                                                                      region,
+                                                                      json.dumps(other_info)]],
+                                                                    columns=summary_df.columns,
+                                                                    index=[IS_id]))
+        summary_df.to_csv(self.output().path, index=1, sep='\t')
 
 
 class detect_plasmid(luigi.Task):
@@ -591,25 +577,8 @@ class detect_plasmid(luigi.Task):
     dry_run = luigi.BoolParameter()
 
     def requires(self):
-        required_tasks = {"IS_scan": [],
-                          "prokka": [],
-                          "roary": '',
-                          "shovill": []}
+        required_tasks = {"shovill": []}
 
-        required_tasks["IS_scan"] += [ISEscan(R1=_R1,
-                                              R2=_R2,
-                                              sample_name=sn,
-                                              odir=self.odir,
-                                              dry_run=self.dry_run,
-                                              ) for sn, _R1, _R2 in self.PE_data]
-        required_tasks["prokka"] += [prokka(R1=_R1,
-                                            R2=_R2,
-                                            sample_name=sn,
-                                            odir=self.odir,
-                                            dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
-        required_tasks["roary"] = roary(PE_data=self.PE_data,
-                                        odir=self.odir,
-                                        dry_run=self.dry_run)
         required_tasks["shovill"] += [shovill(R1=_R1,
                                               R2=_R2,
                                               sample_name=sn,
@@ -623,13 +592,13 @@ class detect_plasmid(luigi.Task):
     def output(self):
         return luigi.LocalTarget(os.path.join(str(self.odir),
                                               "plasmid_summary",
-                                              "plasmid_summary.csv"))
+                                              "plasmid_summary.tab"))
 
     def run(self):
-        run_plasmid_detect(indir=str(self.input()["shovill"][0].path).rsplit('/', maxsplit=3)[0],  # todo: maybe not compatiable to windows OS.
-                           roary_dir=os.path.dirname(self.input()["roary"][0].path),
-                           prokka_dir=os.path.dirname(os.path.dirname(self.input()["prokka"][0].path)),
-                           odir=os.path.dirname(self.output().path),
+        assembly_odir = str(self.input()["shovill"][0].path).rsplit('/', maxsplit=3)[0]
+
+        run_plasmid_detect(indir=assembly_odir,  # todo: maybe not compatiable to windows OS.
+                           ofile=self.output().path,
                            dry_run=self.dry_run,
                            log_file=log_file_stream)
 
@@ -658,12 +627,9 @@ class phigaro(ISEscan):
 
 
 class phigaro_summary(ISEscan_summary):
-
+    # regions specific annotated
     def requires(self):
-        required_tasks = {"phigaro": [],
-                          "prokka": [],
-                          "roary": '',
-                          "abricate": ''}
+        required_tasks = {"phigaro": []}
         required_tasks["phigaro"] += [phigaro(R1=_R1,
                                               R2=_R2,
                                               sample_name=sn,
@@ -675,22 +641,6 @@ class phigaro_summary(ISEscan_summary):
                                               sample_name=sn,
                                               odir=self.odir,
                                               dry_run=self.dry_run) for sn, _R1 in self.SE_data]
-        required_tasks["prokka"] += [prokka(R1=_R1,
-                                            R2=_R2,
-                                            sample_name=sn,
-                                            odir=self.odir,
-                                            dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
-        required_tasks["prokka"] += [prokka(R1=_R1,
-                                            R2='',
-                                            sample_name=sn,
-                                            odir=self.odir,
-                                            dry_run=self.dry_run) for sn, _R1 in self.SE_data]
-        required_tasks["abricate"] = abricate(PE_data=self.PE_data,
-                                              odir=self.odir,
-                                              dry_run=self.dry_run)
-        required_tasks["roary"] = roary(PE_data=self.PE_data,
-                                        odir=self.odir,
-                                        dry_run=self.dry_run)
         return required_tasks
 
     def output(self):
@@ -701,23 +651,15 @@ class phigaro_summary(ISEscan_summary):
         return luigi.LocalTarget(ofile)
 
     def run(self):
-        import json
-        from toolkit.process_phigaro import write_gff
-
         total_samples = [sn for sn, _R1, _R2 in self.PE_data] + \
                         [sn for sn, _R1 in self.SE_data]
         summary_df = pd.DataFrame(
-            columns=['region',
+            columns=["sample",
+                     "region",
                      "other info"])
-
-        for phigaro_tab_pth, ori_gff, sample_name in zip(self.input()["phigaro"],
-                                                         self.input()["prokka"],
-                                                         total_samples):
-            # write new phage annotated gff
-            write_gff(phigaro_tab_pth,
-                      ori_gff)
+        for phigaro_tab_pth, sample_name in zip(self.input()["phigaro"],
+                                                total_samples):
             # output to same path of phigaro_tab
-
             phigaro_tab_pth = phigaro_tab_pth.path
             phigaro_tab = pd.read_csv(phigaro_tab_pth, sep='\t')
             for idx, vals in phigaro_tab.iterrows():
@@ -727,11 +669,12 @@ class phigaro_summary(ISEscan_summary):
                 other_info = vals.loc[set(vals.index).difference({"scaffold",
                                                                   "begin",
                                                                   "end"})].to_dict()
-                summary_df = summary_df.append(pd.DataFrame([[region,
-                                                 json.dumps(other_info)]],
+                summary_df = summary_df.append(pd.DataFrame([[sample_name,
+                                                              region,
+                                                              json.dumps(other_info)]],
                                                             index=[sample_name],
                                                             columns=summary_df.columns))
-        summary_df.to_csv(self.output().path, sep='\t', index=0)
+        summary_df.to_csv(self.output().path, sep='\t', index=1)
 
 
 class workflow(luigi.Task):
@@ -798,14 +741,15 @@ class workflow(luigi.Task):
         require_tasks["fasttree"] = fasttree(PE_data=pairreads,
                                              odir=self.odir,
                                              dry_run=self.dry_run)
-        require_tasks["ISEscan_summary"] = ISEscan_summary(PE_data=pairreads,
-                                                           SE_data=singlereads,
-                                                           odir=self.odir,
-                                                           dry_run=self.dry_run)
         require_tasks["pandoo"] = pandoo(PE_data=pairreads,
                                          SE_data=singlereads,
                                          odir=self.odir,
                                          dry_run=self.dry_run)
+        require_tasks["ISEscan_summary"] = ISEscan_summary(PE_data=pairreads,
+                                                           SE_data=singlereads,
+                                                           odir=self.odir,
+                                                           dry_run=self.dry_run)
+
         require_tasks["detect_plasmid"] = detect_plasmid(PE_data=pairreads,
                                                          odir=self.odir,
                                                          dry_run=self.dry_run)
@@ -817,11 +761,36 @@ class workflow(luigi.Task):
 
     def run(self):
         # post pipelines
+        roary_dir = os.path.dirname(self.input()["fasttree"].path)
+        prokka_o = os.path.join(self.odir,
+                                   'prokka_o')
+        abricate_file = self.input()["abricate"].path
+        from toolkit.process_region_annotated import get_accessory_obj
+        locus2group, locus2annotate, sample2gff = get_accessory_obj(roary_dir,
+                      abricate_file,
+                      prokka_o)
+        merged_locus2annotate = locus2group.copy(deep=True)
+        merged_locus2annotate.update(locus2annotate)
+        ############################################################
+        summary_task_tags = ["detect_prophage",
+                             "detect_plasmid",
+                             "ISEscan_summary"]
+        summary_task_source = ["phigaro",
+                               "plasmidSpades+bwa",
+                               "isescan"]
+        for tag,source in zip(summary_task_tags,summary_task_source):
+            pth = self.output()[tag].path
+            # 1. write info to empty gff for each sample
+            # 2. extract each region with annotated info for each sample
+            # 3. summary statistic info
+            # 4. summary into matrix
+
         post_analysis(self)
 
 
 if __name__ == '__main__':
     luigi.run()
+
     # luigi.build([workflow(tab="/home/liaoth/project/genome_pipelines/pipelines/test/test_input.tab",
     #                       odir="/home/liaoth/project/genome_pipelines/pipelines/test/test_luigi",
     #                       dry_run=False)],
