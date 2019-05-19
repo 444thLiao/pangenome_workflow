@@ -715,9 +715,9 @@ class workflow(luigi.Task):
             log_pth = os.path.join(str(self.odir),
                                    'pipelines_%s.log' % str(int(time.time())))
 
-
         global _log_stream
-        _log_stream = open(log_pth, 'w')
+        if _log_stream is None:
+            _log_stream = open(log_pth, 'w')
 
         require_tasks["fastqc_before"] = multiqc(PE_data=pairreads,
                                                  status='before',
