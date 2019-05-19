@@ -6,6 +6,8 @@ from pipelines import constant_str as constant
 from pipelines.tasks import *
 from toolkit.utils import validate_table
 
+global _log_stream
+_log_stream = None
 
 # give some default parameter
 class fastqc(luigi.Task):
