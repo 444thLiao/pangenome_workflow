@@ -1,4 +1,3 @@
-import json
 import time
 
 import luigi
@@ -320,6 +319,7 @@ class prokka(luigi.Task):
 class roary(luigi.Task):
     # comparative
     PE_data = luigi.TupleParameter()
+    SE_data = luigi.TupleParameter()
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter()
 
@@ -328,7 +328,14 @@ class roary(luigi.Task):
                        R2=_R2,
                        sample_name=sn,
                        odir=self.odir,
-                       dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
+                       dry_run=self.dry_run)
+                for sn, _R1, _R2 in self.PE_data] + \
+               [prokka(R1=_R1,
+                       R2='',
+                       sample_name=sn,
+                       odir=self.odir,
+                       dry_run=self.dry_run)
+                for sn, _R1 in self.SE_data]
 
     def output(self):
         odir = os.path.join(str(self.odir), "all_roary_o")
@@ -346,11 +353,13 @@ class roary(luigi.Task):
 class fasttree(luigi.Task):
     # comparative
     PE_data = luigi.TupleParameter()
+    SE_data = luigi.TupleParameter()
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter()
 
     def requires(self):
         return roary(PE_data=self.PE_data,
+                     SE_data=self.SE_data,
                      odir=self.odir,
                      dry_run=self.dry_run)
 
@@ -423,6 +432,7 @@ class pandoo(luigi.Task):
 class abricate(luigi.Task):
     # single and joint
     PE_data = luigi.TupleParameter()
+    SE_data = luigi.TupleParameter()
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter()
 
@@ -436,6 +446,11 @@ class abricate(luigi.Task):
                                  sample_name=sn,
                                  odir=self.odir,
                                  dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
+        require_tasks += [prokka(R1=_R1,
+                                 R2='',
+                                 sample_name=sn,
+                                 odir=self.odir,
+                                 dry_run=self.dry_run) for sn, _R1 in self.SE_data]
         return require_tasks
 
     def output(self):
@@ -737,9 +752,11 @@ class workflow(luigi.Task):
                                                 dry_run=self.dry_run,
                                                 )
         require_tasks["abricate"] = abricate(PE_data=pairreads,
+                                             SE_data=singlereads,
                                              odir=self.odir,
                                              dry_run=self.dry_run)
         require_tasks["fasttree"] = fasttree(PE_data=pairreads,
+                                             SE_data=singlereads,
                                              odir=self.odir,
                                              dry_run=self.dry_run)
         require_tasks["pandoo"] = pandoo(PE_data=pairreads,
