@@ -11,21 +11,14 @@ from Bio import SeqIO, Phylo
 
 
 
-def validate_table(df):
-    if df.loc[df.index.drop_duplicates(),:].shape[0] != df.shape[0]:
-        raise Exception("sample name contains duplicates")
-    both_null = df.loc[(df.iloc[:,0].isna()) & (df.iloc[:,1].isna()),:]
-    if both_null.shape[0] != 0:
-        raise Exception("Some rows doesn't have R1 and R2. ")
-
-
 def run_cmd(cmd, dry_run=False, log_file=None, **kwargs):
     outstream = None
     if type(log_file) == str:
         if os.path.isfile(log_file):
-            if os.path.getsize(log_file) == 0:
+            if os.path.getsize(log_file) != 0:
                 outstream = open(log_file, 'a')
         if outstream is None:
+            valid_path(log_file,check_ofile=True)
             outstream = open(log_file, 'w')
     elif log_file is None:
         outstream = sys.stdout
@@ -42,7 +35,6 @@ def run_cmd(cmd, dry_run=False, log_file=None, **kwargs):
                    stderr=outstream,
                    **kwargs)
         outstream.flush()
-
 
 def valid_path(in_pth,
                check_size=False,

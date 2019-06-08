@@ -4,20 +4,24 @@ import luigi
 
 from pipelines import constant_str as constant
 from pipelines.tasks import *
-from toolkit.utils import validate_table
 
-global _log_stream
-_log_stream = None
+class base_luigi_task(luigi.Task):
+    odir = luigi.Parameter()
+    dry_run = luigi.BoolParameter(default=False)
+    log_path = luigi.Parameter(default=None)
+
+    def get_log_path(self):
+        base_log_path = self.log_path
+        if base_log_path is not None:
+            return base_log_path
+
 
 # give some default parameter
-class fastqc(luigi.Task):
+class fastqc(base_luigi_task):
     R1 = luigi.Parameter()
     R2 = luigi.Parameter(default=None)
     sample_name = luigi.Parameter(default=None)
     status = luigi.Parameter(default="before")
-
-    odir = luigi.Parameter()
-    dry_run = luigi.BoolParameter()
 
     def requires(self):
         if self.status == 'before':
@@ -27,7 +31,8 @@ class fastqc(luigi.Task):
                                R2=self.R2,
                                odir=self.odir,
                                sample_name=self.sample_name,
-                               dry_run=self.dry_run)
+                               dry_run=self.dry_run,
+                               log_path=self.log_path)
 
     def output(self):
         odir = os.path.join(str(self.odir),
@@ -54,15 +59,16 @@ class fastqc(luigi.Task):
         run_fastqc(in_files=[R1, R2],
                    odir=os.path.dirname(self.output()[0].path),
                    dry_run=self.dry_run,
-                   log_file=_log_stream)
+                   log_file=self.get_log_path())
 
+        if self.dry_run:
+            for _o in self.output():
+                run_cmd("touch %s" % _o.path, dry_run=False)
 
-class multiqc(luigi.Task):
+class multiqc(base_luigi_task):
     PE_data = luigi.TupleParameter()
     status = luigi.Parameter()
-    odir = luigi.Parameter()
     other_info = luigi.DictParameter(default={})
-    dry_run = luigi.BoolParameter()
 
     def requires(self):
         if self.status == 'before' or self.status == 'after':
@@ -71,14 +77,16 @@ class multiqc(luigi.Task):
                            status=self.status,
                            sample_name=sn,
                            odir=self.odir,
-                           dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
+                           dry_run=self.dry_run,
+                           log_path=self.log_path) for sn, _R1, _R2 in self.PE_data]
         elif self.status == "quast":
             return [quast(R1=_R1,
                           R2=_R2,
                           odir=self.odir,
                           sample_name=sn,
                           other_info=self.other_info,
-                          dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
+                          dry_run=self.dry_run,
+                          log_path=self.log_path) for sn, _R1, _R2 in self.PE_data]
         else:
             raise Exception
 
@@ -108,13 +116,12 @@ class multiqc(luigi.Task):
                     fn=filename,
                     extra_str=extra_str,
                     dry_run=self.dry_run,
-                    log_file=_log_stream)
+                    log_file=self.get_log_path())
+        if self.dry_run:
+            run_cmd("touch %s" % self.output().path, dry_run=False)
 
-
-class preprocess_SE(luigi.Task):
+class preprocess_SE(base_luigi_task):
     R1 = luigi.Parameter()
-    odir = luigi.Parameter()
-    dry_run = luigi.BoolParameter()
     sample_name = luigi.Parameter()
 
     def output(self):
@@ -134,14 +141,13 @@ class preprocess_SE(luigi.Task):
         run_cmd("ln -s '{ori}' {new}".format(ori=self.R1,
                                              new=self.output().path),
                 dry_run=self.dry_run,
-                log_file=_log_stream)
+                log_file=self.get_log_path())
+        if self.dry_run:
+            run_cmd("touch %s" % self.output().path, dry_run=False)
 
-
-class trimmomatic(luigi.Task):
-    dry_run = luigi.BoolParameter()
+class trimmomatic(base_luigi_task):
     R1 = luigi.Parameter()
     R2 = luigi.Parameter()
-    odir = luigi.Parameter()
     sample_name = luigi.Parameter()
 
     def output(self):
@@ -164,7 +170,7 @@ class trimmomatic(luigi.Task):
                         sample_name=self.sample_name,
                         thread=constant.p_trimmomatic,  # todo: determine the thread
                         dry_run=self.dry_run,
-                        log_file=_log_stream
+                        log_file=self.get_log_path()
                         )
         # remove the log file, too waste
         try:
@@ -172,13 +178,13 @@ class trimmomatic(luigi.Task):
             os.remove(pth)
         except:
             pass
+        if self.dry_run:
+            for _o in self.output():
+                run_cmd("touch %s" % _o.path, dry_run=False)
 
-
-class quast(luigi.Task):
+class quast(base_luigi_task):
     R1 = luigi.Parameter()
     R2 = luigi.Parameter()
-    odir = luigi.Parameter()
-    dry_run = luigi.BoolParameter()
     other_info = luigi.Parameter(default=None)
     sample_name = luigi.Parameter()
 
@@ -188,16 +194,18 @@ class quast(luigi.Task):
                         odir=self.odir,
                         dry_run=self.dry_run,
                         sample_name=self.sample_name,
-                        status="regular"),
+                        status="regular",
+                        log_path=self.log_path),
 
                 trimmomatic(R1=self.R1,
                             R2=self.R2,
                             odir=self.odir,
                             sample_name=self.sample_name,
-                            dry_run=self.dry_run)]
+                            dry_run=self.dry_run,
+                            log_path=self.log_path)]
 
     def output(self):
-        # todo:
+        # todo: formatted the output directory
         odir = os.path.join(str(self.odir),
                             'assembly_o',
                             "regular_quast",
@@ -208,7 +216,8 @@ class quast(luigi.Task):
     def run(self):
         if self.other_info is not None:
             other_info = json.loads(self.other_info)
-            ref = other_info[str(self.sample_name)]["ref"]  # todo: formatted header of dataframe
+            ref = other_info[str(self.sample_name)]["ref"]
+            # todo: formatted header of dataframe
             gff = other_info[str(self.sample_name)]["gff"]
         else:
             ref = gff = None
@@ -221,14 +230,15 @@ class quast(luigi.Task):
                   odir=os.path.dirname(self.output().path),
                   thread=constant.p_quast,  # todo: determine the thread
                   dry_run=self.dry_run,
-                  log_file=_log_stream)
+                  log_file=self.get_log_path())
+        if self.dry_run:
+            for _o in [self.output()]:
+                run_cmd("touch %s" % _o.path, dry_run=False)
 
 
-class shovill(luigi.Task):
+class shovill(base_luigi_task):
     R1 = luigi.Parameter()
     R2 = luigi.Parameter()
-    odir = luigi.Parameter()
-    dry_run = luigi.BoolParameter()
     sample_name = luigi.Parameter()
     status = luigi.Parameter()
 
@@ -237,7 +247,8 @@ class shovill(luigi.Task):
                            R2=self.R2,
                            odir=self.odir,
                            sample_name=self.sample_name,
-                           dry_run=self.dry_run)
+                           dry_run=self.dry_run,
+                           log_path=self.log_path)
 
     def output(self):
         if self.status == 'plasmid':
@@ -277,15 +288,15 @@ class shovill(luigi.Task):
                     spades_extra_options=spades_extra_options,
                     extra_option=extra_option,
                     dry_run=self.dry_run,
-                    log_file=_log_stream
+                    log_file=self.get_log_path()
                     )
+        if self.dry_run:
+            for _o in [self.output()]:
+                run_cmd("touch %s" % _o.path, dry_run=False)
 
-
-class prokka(luigi.Task):
+class prokka(base_luigi_task):
     R1 = luigi.Parameter()
     R2 = luigi.Parameter()
-    odir = luigi.Parameter()
-    dry_run = luigi.BoolParameter()
     sample_name = luigi.Parameter()
 
     def requires(self):
@@ -293,14 +304,16 @@ class prokka(luigi.Task):
             return preprocess_SE(R1=self.R1,
                                  odir=self.odir,
                                  dry_run=self.dry_run,
-                                 sample_name=self.sample_name)
+                                 sample_name=self.sample_name,
+                                 log_path=self.log_path)
         elif self.R2:
             return shovill(R1=self.R1,
                            R2=self.R2,
                            odir=self.odir,
                            dry_run=self.dry_run,
                            sample_name=self.sample_name,
-                           status='regular')
+                           status='regular',
+                           log_path=self.log_path)
 
     def output(self):
         odir = os.path.join(str(self.odir),
@@ -310,33 +323,36 @@ class prokka(luigi.Task):
                                               str(self.sample_name) + '.gff'))
 
     def run(self):
+        valid_path(self.output().path,check_ofile=1)
         prokka_in_file = self.input().path
 
         run_prokka(infile=prokka_in_file,
                    odir=os.path.dirname(self.output().path),
                    dry_run=self.dry_run,
-                   log_file=_log_stream)
+                   log_file=self.get_log_path())
+        if self.dry_run:
+            for _o in [self.output()]:
+                run_cmd("touch %s" % _o.path, dry_run=False)
 
-
-class roary(luigi.Task):
+class roary(base_luigi_task):
     # comparative
     PE_data = luigi.TupleParameter()
     SE_data = luigi.TupleParameter()
-    odir = luigi.Parameter()
-    dry_run = luigi.BoolParameter()
 
     def requires(self):
         return [prokka(R1=_R1,
                        R2=_R2,
                        sample_name=sn,
                        odir=self.odir,
-                       dry_run=self.dry_run)
+                       dry_run=self.dry_run,
+                       log_path=self.log_path)
                 for sn, _R1, _R2 in self.PE_data] + \
                [prokka(R1=_R1,
                        R2='',
                        sample_name=sn,
                        odir=self.odir,
-                       dry_run=self.dry_run)
+                       dry_run=self.dry_run,
+                       log_path=self.log_path)
                 for sn, _R1 in self.SE_data]
 
     def output(self):
@@ -345,25 +361,27 @@ class roary(luigi.Task):
                 luigi.LocalTarget(os.path.join(odir, "clustered_proteins"))]
 
     def run(self):
+        valid_path(self.output()[0].path,check_ofile=1)
         run_roary(os.path.dirname(os.path.dirname(self.input()[0].path)),
                   os.path.dirname(self.output()[0].path),
                   thread=constant.p_roary,  # todo: determine the thread
                   dry_run=self.dry_run,
-                  log_file=_log_stream)
+                  log_file=self.get_log_path())
+        if self.dry_run:
+            for _o in self.output():
+                run_cmd("touch %s" % _o.path, dry_run=False)
 
-
-class fasttree(luigi.Task):
+class fasttree(base_luigi_task):
     # comparative
     PE_data = luigi.TupleParameter()
     SE_data = luigi.TupleParameter()
-    odir = luigi.Parameter()
-    dry_run = luigi.BoolParameter()
 
     def requires(self):
         return roary(PE_data=self.PE_data,
                      SE_data=self.SE_data,
                      odir=self.odir,
-                     dry_run=self.dry_run)
+                     dry_run=self.dry_run,
+                     log_path=self.log_path)
 
     def output(self):
         aln_file = self.input()[0].path
@@ -373,15 +391,16 @@ class fasttree(luigi.Task):
         run_fasttree(self.input()[0].path,
                      self.output().path,
                      dry_run=self.dry_run,
-                     log_file=_log_stream)
+                     log_file=self.get_log_path())
+        if self.dry_run:
+            for _o in [self.output()]:
+                run_cmd("touch %s" % _o.path, dry_run=False)
 
-
-class pandoo(luigi.Task):
+class pandoo(base_luigi_task):
+    # todo: dissect pandoo into two.
     # single and joint
     PE_data = luigi.TupleParameter()
     SE_data = luigi.TupleParameter()
-    odir = luigi.Parameter()
-    dry_run = luigi.BoolParameter()
 
     def requires(self):
         required_tasks = {}
@@ -391,11 +410,13 @@ class pandoo(luigi.Task):
                                         sample_name=sn,
                                         odir=self.odir,
                                         dry_run=self.dry_run,
-                                        status='regular') for sn, _R1, _R2 in self.PE_data]
+                                        status='regular',
+                                        log_path=self.log_path) for sn, _R1, _R2 in self.PE_data]
         required_tasks["SE"] = [preprocess_SE(R1=_R1,
                                               odir=self.odir,
                                               dry_run=self.dry_run,
-                                              sample_name=sn) for sn, _R1 in self.SE_data]
+                                              sample_name=sn,
+                                              log_path=self.log_path) for sn, _R1 in self.SE_data]
         return required_tasks
 
     def output(self):
@@ -406,6 +427,7 @@ class pandoo(luigi.Task):
         return luigi.LocalTarget(ofile)
 
     def run(self):
+        valid_path(self.output().path, check_ofile=1)
         pandoo_tab = pd.DataFrame()
         for idx in range(len(self.PE_data)):
             sn, _R1, _R2 = self.PE_data[idx]
@@ -428,31 +450,34 @@ class pandoo(luigi.Task):
                    odir=os.path.dirname(self.output().path),
                    thread=constant.p_pandoo,  # todo: determine the thread
                    dry_run=self.dry_run,
-                   log_file=_log_stream)
+                   log_file=self.get_log_path())
+        if self.dry_run:
+            for _o in [self.output()]:
+                run_cmd("touch %s" % _o.path, dry_run=False)
 
-
-class abricate(luigi.Task):
+class abricate(base_luigi_task):
     # single and joint
     PE_data = luigi.TupleParameter()
     SE_data = luigi.TupleParameter()
-    odir = luigi.Parameter()
-    dry_run = luigi.BoolParameter()
-
     def requires(self):
         require_tasks = []
         require_tasks.append(roary(PE_data=self.PE_data,
+                                   SE_data=self.SE_data,
                                    odir=self.odir,
-                                   dry_run=self.dry_run))
+                                   dry_run=self.dry_run,
+                                   log_path=self.log_path))
         require_tasks += [prokka(R1=_R1,
                                  R2=_R2,
                                  sample_name=sn,
                                  odir=self.odir,
-                                 dry_run=self.dry_run) for sn, _R1, _R2 in self.PE_data]
+                                 dry_run=self.dry_run,
+                                 log_path=self.log_path) for sn, _R1, _R2 in self.PE_data]
         require_tasks += [prokka(R1=_R1,
                                  R2='',
                                  sample_name=sn,
                                  odir=self.odir,
-                                 dry_run=self.dry_run) for sn, _R1 in self.SE_data]
+                                 dry_run=self.dry_run,
+                                 log_path=self.log_path) for sn, _R1 in self.SE_data]
         return require_tasks
 
     def output(self):
@@ -463,6 +488,7 @@ class abricate(luigi.Task):
         return luigi.LocalTarget(ofile)
 
     def run(self):
+        valid_path(self.output().path, check_ofile=1)
         prokka_o = os.path.dirname(os.path.dirname(self.input()[1].path))
         roary_dir = os.path.dirname(self.input()[0][0].path)
         # add(instead of annotated) annotated features into gff
@@ -472,15 +498,15 @@ class abricate(luigi.Task):
                      thread=constant.p_abricate,  # todo: determine the thread
                      mincov=constant.mincov_abricate,  # todo
                      dry_run=self.dry_run,
-                     log_file=_log_stream)
+                     log_file=self.get_log_path())
+        if self.dry_run:
+            for _o in [self.output()]:
+                run_cmd("touch %s" % _o.path, dry_run=False)
 
-
-class ISEscan(luigi.Task):
+class ISEscan(base_luigi_task):
     # single
     R1 = luigi.Parameter()
     R2 = luigi.Parameter()
-    odir = luigi.Parameter()
-    dry_run = luigi.BoolParameter()
     sample_name = luigi.Parameter()
 
     def requires(self):
@@ -488,14 +514,16 @@ class ISEscan(luigi.Task):
             return preprocess_SE(R1=self.R1,
                                  odir=self.odir,
                                  dry_run=self.dry_run,
-                                 sample_name=self.sample_name)
+                                 sample_name=self.sample_name,
+                                 log_path=self.log_path)
         elif self.R2:
             return shovill(R1=self.R1,
                            R2=self.R2,
                            sample_name=self.sample_name,
                            odir=self.odir,
                            dry_run=self.dry_run,
-                           status='regular')
+                           status='regular',
+                           log_path=self.log_path)
 
     def output(self):
         final_name = "%s.gff" % self.sample_name
@@ -507,13 +535,14 @@ class ISEscan(luigi.Task):
         return luigi.LocalTarget(ofile)
 
     def run(self):
+        valid_path(self.output().path,check_ofile=1)
         infile_pth = self.input().path
 
         run_ISEscan(infile=infile_pth,
                     odir=os.path.dirname(os.path.dirname(self.output().path)),
                     sample_name=self.sample_name,
                     dry_run=self.dry_run,
-                    log_file=_log_stream)
+                    log_file=self.get_log_path())
         # For rename
         odir = os.path.dirname(self.output().path)
         for ori_file in glob(os.path.join(odir, '*')):
@@ -521,14 +550,14 @@ class ISEscan(luigi.Task):
             os.renames(ori_file,
                        os.path.join(odir,
                                     str(self.sample_name) + '.%s' % suffix))
+        if self.dry_run:
+            for _o in [self.output()]:
+                run_cmd("touch %s" % _o.path, dry_run=False)
 
-
-class ISEscan_summary(luigi.Task):
+class ISEscan_summary(base_luigi_task):
     # joint
     PE_data = luigi.TupleParameter()
     SE_data = luigi.TupleParameter()
-    odir = luigi.Parameter()
-    dry_run = luigi.BoolParameter()
 
     def requires(self):
         required_tasks = {"IS_scan": []}
@@ -537,12 +566,14 @@ class ISEscan_summary(luigi.Task):
                                               sample_name=sn,
                                               odir=self.odir,
                                               dry_run=self.dry_run,
+                                              log_path=self.log_path
                                               ) for sn, _R1, _R2 in self.PE_data]
         required_tasks["IS_scan"] += [ISEscan(R1=_R1,
                                               R2='',
                                               sample_name=sn,
                                               odir=self.odir,
-                                              dry_run=self.dry_run) for sn, _R1 in self.SE_data]
+                                              dry_run=self.dry_run,
+                                              log_path=self.log_path) for sn, _R1 in self.SE_data]
         return required_tasks
 
     def output(self):
@@ -586,13 +617,13 @@ class ISEscan_summary(luigi.Task):
                                                                     columns=summary_df.columns,
                                                                     index=[IS_id]))
         summary_df.to_csv(self.output().path, index=1, sep='\t')
+        if self.dry_run:
+            for _o in [self.output()]:
+                run_cmd("touch %s" % _o.path, dry_run=False)
 
-
-class detect_plasmid(luigi.Task):
+class detect_plasmid(base_luigi_task):
     # joint
     PE_data = luigi.TupleParameter()
-    odir = luigi.Parameter()
-    dry_run = luigi.BoolParameter()
 
     def requires(self):
         required_tasks = {"shovill": []}
@@ -602,7 +633,8 @@ class detect_plasmid(luigi.Task):
                                               sample_name=sn,
                                               odir=self.odir,
                                               dry_run=self.dry_run,
-                                              status='plasmid'
+                                              status='plasmid',
+                                              log_path=self.log_path
                                               ) for sn, _R1, _R2 in self.PE_data]
 
         return required_tasks
@@ -618,8 +650,10 @@ class detect_plasmid(luigi.Task):
         run_plasmid_detect(indir=assembly_odir,  # todo: maybe not compatiable to windows OS.
                            ofile=self.output().path,
                            dry_run=self.dry_run,
-                           log_file=_log_stream)
-
+                           log_file=self.get_log_path())
+        if self.dry_run:
+            for _o in [self.output()]:
+                run_cmd("touch %s" % _o.path, dry_run=False)
 
 class phigaro(ISEscan):
     # single
@@ -634,14 +668,19 @@ class phigaro(ISEscan):
         return luigi.LocalTarget(ofile)
 
     def run(self):
+        valid_path(self.output().path,check_ofile=1)
+
         infile_pth = self.input().path
 
         run_phigaro(infile_pth,
                     ofile=self.output().path,
                     thread=constant.p_phigaro,
                     dry_run=self.dry_run,
-                    log_file=_log_stream
+                    log_file=self.get_log_path()
                     )
+        if self.dry_run:
+            for _o in [self.output()]:
+                run_cmd("touch %s" % _o.path, dry_run=False)
 
 
 class phigaro_summary(ISEscan_summary):
@@ -653,12 +692,14 @@ class phigaro_summary(ISEscan_summary):
                                               sample_name=sn,
                                               odir=self.odir,
                                               dry_run=self.dry_run,
+                                              log_path=self.log_path
                                               ) for sn, _R1, _R2 in self.PE_data]
         required_tasks["phigaro"] += [phigaro(R1=_R1,
                                               R2='',
                                               sample_name=sn,
                                               odir=self.odir,
-                                              dry_run=self.dry_run) for sn, _R1 in self.SE_data]
+                                              dry_run=self.dry_run,
+                                              log_path=self.log_path) for sn, _R1 in self.SE_data]
         return required_tasks
 
     def output(self):
@@ -669,120 +710,37 @@ class phigaro_summary(ISEscan_summary):
         return luigi.LocalTarget(ofile)
 
     def run(self):
-        total_samples = [sn for sn, _R1, _R2 in self.PE_data] + \
-                        [sn for sn, _R1 in self.SE_data]
-        summary_df = pd.DataFrame(
-            columns=["sample",
-                     "region",
-                     "other info"])
-        for phigaro_tab_pth, sample_name in zip(self.input()["phigaro"],
-                                                total_samples):
-            # output to same path of phigaro_tab
-            phigaro_tab_pth = phigaro_tab_pth.path
-            phigaro_tab = pd.read_csv(phigaro_tab_pth, sep='\t')
-            for idx, vals in phigaro_tab.iterrows():
-                region = "%s:%s-%s" % (vals["scaffold"],
-                                       vals["begin"],
-                                       vals["end"])
-                other_info = vals.loc[set(vals.index).difference({"scaffold",
-                                                                  "begin",
-                                                                  "end"})].to_dict()
-                summary_df = summary_df.append(pd.DataFrame([[sample_name,
-                                                              region,
-                                                              json.dumps(other_info)]],
-                                                            index=[sample_name],
-                                                            columns=summary_df.columns))
-        summary_df.to_csv(self.output().path, sep='\t', index=1)
+        valid_path(self.output().path,check_ofile=1)
+        if not self.dry_run:
+            total_samples = [sn for sn, _R1, _R2 in self.PE_data] + \
+                            [sn for sn, _R1 in self.SE_data]
+            summary_df = pd.DataFrame(
+                columns=["sample",
+                         "region",
+                         "other info"])
+            for phigaro_tab_pth, sample_name in zip(self.input()["phigaro"],
+                                                    total_samples):
+                # output to same path of phigaro_tab
+                phigaro_tab_pth = phigaro_tab_pth.path
+                phigaro_tab = pd.read_csv(phigaro_tab_pth, sep='\t')
+                for idx, vals in phigaro_tab.iterrows():
+                    region = "%s:%s-%s" % (vals["scaffold"],
+                                           vals["begin"],
+                                           vals["end"])
+                    other_info = vals.loc[set(vals.index).difference({"scaffold",
+                                                                      "begin",
+                                                                      "end"})].to_dict()
+                    summary_df = summary_df.append(pd.DataFrame([[sample_name,
+                                                                  region,
+                                                                  json.dumps(other_info)]],
+                                                                index=[sample_name],
+                                                                columns=summary_df.columns))
+            summary_df.to_csv(self.output().path, sep='\t', index=1)
 
+        if self.dry_run:
+            for _o in [self.output()]:
+                run_cmd("touch %s" % _o.path, dry_run=False)
 
-class workflow(luigi.Task):
-    tab = luigi.Parameter()
-    odir = luigi.Parameter()
-    dry_run = luigi.BoolParameter()
-    log_path = luigi.Parameter(default=None)
-
-    def output(self):
-        return luigi.LocalTarget(os.path.join(str(self.odir),
-                                              "pipelines_summary"))
-
-    def requires(self):
-        input_df = pd.read_csv(self.tab, sep='\t', index_col=0, dtype=str)
-        # index is samples ID, following is [R1,R2,ref_fna,ref_gff]
-        validate_table(input_df)
-
-        PE_rows = input_df.loc[(~input_df.iloc[:, 0].isna()) & (~input_df.iloc[:, 1].isna()), :]
-        # R1 and R2 are both not null
-        Single_rows = input_df.loc[~input_df.index.isin(PE_rows.index), :]
-        # except the PE_rows
-        valid_path(self.odir, check_odir=True)
-        require_tasks = {}
-        pairreads = tuple(zip(PE_rows.index,
-                              PE_rows.iloc[:, 0],
-                              PE_rows.iloc[:, 1], ))
-        singlereads = tuple(zip(Single_rows.index,
-                                Single_rows.iloc[:, 0]))
-        if PE_rows.shape[1] > 2:
-            other_info = PE_rows.to_dict(orient='index')
-        else:
-            other_info = None
-
-        if self.log_path is not None:
-            log_pth = self.log_path
-        else:
-            log_pth = os.path.join(str(self.odir),
-                                   'pipelines_%s.log' % str(int(time.time())))
-
-        global _log_stream
-        if _log_stream is None:
-            _log_stream = open(log_pth, 'w')
-
-        require_tasks["fastqc_before"] = multiqc(PE_data=pairreads,
-                                                 status='before',
-                                                 odir=self.odir,
-                                                 dry_run=self.dry_run,
-
-                                                 )
-        require_tasks["fastqc_after"] = multiqc(PE_data=pairreads,
-                                                status='after',
-                                                odir=self.odir,
-                                                dry_run=self.dry_run,
-                                                )
-        require_tasks["fastqc_quast"] = multiqc(PE_data=pairreads,
-                                                status='quast',
-                                                other_info=json.dumps(other_info),
-                                                odir=self.odir,
-                                                dry_run=self.dry_run,
-                                                )
-        require_tasks["abricate"] = abricate(PE_data=pairreads,
-                                             SE_data=singlereads,
-                                             odir=self.odir,
-                                             dry_run=self.dry_run)
-        require_tasks["fasttree"] = fasttree(PE_data=pairreads,
-                                             SE_data=singlereads,
-                                             odir=self.odir,
-                                             dry_run=self.dry_run)
-        require_tasks["pandoo"] = pandoo(PE_data=pairreads,
-                                         SE_data=singlereads,
-                                         odir=self.odir,
-                                         dry_run=self.dry_run)
-        require_tasks["ISEscan_summary"] = ISEscan_summary(PE_data=pairreads,
-                                                           SE_data=singlereads,
-                                                           odir=self.odir,
-                                                           dry_run=self.dry_run)
-
-        require_tasks["detect_plasmid"] = detect_plasmid(PE_data=pairreads,
-                                                         odir=self.odir,
-                                                         dry_run=self.dry_run)
-        require_tasks["detect_prophage"] = phigaro_summary(PE_data=pairreads,
-                                                           SE_data=singlereads,
-                                                           odir=self.odir,
-                                                           dry_run=self.dry_run)
-        return require_tasks
-
-    def run(self):
-        # post pipelines
-        post_analysis(self)
-        _log_stream.close()
 
 
 if __name__ == '__main__':

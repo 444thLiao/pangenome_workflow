@@ -309,12 +309,6 @@ def run_plasmid_detect(indir,
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 
-# todo: add more post-analysis to it.
-# checkM (completeness of assembly data) https://github.com/Ecogenomics/CheckM
-# popins (new IS) https://github.com/bkehr/popins
-
-# todo: add auto generated heatmap for this pipelines.
-
 def run_phigaro(infile,
                 ofile,
                 thread=0,
@@ -331,12 +325,18 @@ def run_phigaro(infile,
                              thread=thread, )
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
+# todo: add more post-analysis to it.
+# checkM (completeness of assembly data) https://github.com/Ecogenomics/CheckM
+# popins (new IS) https://github.com/bkehr/popins
+
+# todo: add auto generated heatmap for this pipelines.
 
 def run_gubbins(infile,
                 oprefix,
                 thread=0,
                 dry_run=False,
                 log_file=None):
+    # just like roary
     if thread == 0 or thread == -1:
         thread = cpu_count()
     if not dry_run:
@@ -348,6 +348,255 @@ def run_gubbins(infile,
                              oprefix=oprefix,
                              thread=thread)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
+
+
+def run_seqtk(infile, outfile, isolate):
+    '''
+    # fixme:
+    Runs SeqTK on the contigs.fa (assemblies).  Gathers the fasta metrics.
+    '''
+    if len(infile) == 0:
+        metrics = {}
+    else:
+        os.system('seqtk comp ' + ''.join(infile) + ' > ' + outfile)
+        df1 = pd.read_csv(outfile, header=None, index_col=0, sep='\t',
+                          names=['chr', 'length', '#A', '#C', '#G', '#T', '#2',
+                                 '#3', '#4', '#CpG', '#tv', '#ts', '#CpG-ts'])
+        contig_lengths = df1['length'].tolist()
+        contig_lengths.sort(), contig_lengths.reverse()
+        contig_lengths_prime = [[i] * i for i in contig_lengths]
+        metrics = {}
+        pfx = 'metricsContigs_'
+        metrics[pfx + 'N50'] = int(np.median([i for j in contig_lengths_prime
+                                              for i in j]))
+        bps = sum(contig_lengths)
+        nns = sum(df1['#4'].tolist())
+        metrics[pfx + 'Ns'] = nns
+        metrics[pfx + 'no'] = len(df1.index.values)
+        metrics[pfx + 'bp'] = bps
+        metrics[pfx + 'avg'] = bps / len(contig_lengths)
+        metrics[pfx + 'Max'] = max(contig_lengths)
+        metrics[pfx + 'Min'] = min(contig_lengths)
+        metrics[pfx + 'ok'] = bps - nns
+    metrics['sotwareSeqTKversion_comp'] = seqtk_version()
+    seqtk_comp_df = create_pandas_df(metrics, isolate)
+    # NB: this will overwrite the outfile that was read in at the first step.
+    write_pandas_df(outfile, seqtk_comp_df)
+
+def run_seqtk2(infile, outfile, isolate):
+    '''
+    fixme
+    Runs SeqTK fqchk on the reads.  Gathers fastq metrics.
+    '''
+    pfx = 'metricsReads_'
+    if len(infiles) == 0:
+        metrics = {}
+    else:
+        os.system('seqtk fqchk ' + ' '.join(infiles) + ' > ' + outfile)
+        df_all = pd.read_csv(outfile, index_col=0, sep='\t',
+                             skiprows=1)
+        with open(outfile, 'r') as outf:
+            metrics = outf.readline()
+            metrics = dict([j.split(':') for j in [i.replace(' ', '') for i in
+                                                   metrics.split(';')[0:3]]])
+            for key, value in list(metrics.items()):
+                metrics[pfx + key] = metrics.pop(key)
+        metrics[pfx + 'AvgQual'] = round(df_all.loc['ALL', 'avgQ'], 2)
+        metrics[pfx + 'GeeCee'] = round(df_all.loc['ALL', '%C'] +
+                                        df_all.loc['ALL', '%G'], 2)
+        metrics[pfx + 'Yield'] = int(df_all.loc['ALL', '#bases'] * 2)
+
+        # Count the number of reads in the infiles.
+        cmd = 'zcat ' + ' '.join(infiles)
+        cmd2 = 'wc -l'
+        args = shlex.split(cmd)
+        args2 = shlex.split(cmd2)
+        proc = Popen(args, stdout=PIPE, stderr=PIPE)
+        proc2 = Popen(args2, stdin=proc.stdout, stdout=PIPE)
+        output = proc2.communicate()[0].decode('UTF-8')
+        metrics[pfx + 'nReads'] = int(int(output) / 4)
+
+        # Get the mode read length.
+        n_bases = df_all['#bases'].values[1:]
+        lengths = []
+        pos = 0
+        while pos < len(n_bases) - 1:
+            lengths.append(n_bases[pos] - n_bases[pos + 1])
+            pos += 1
+        else:
+            lengths.append(n_bases[pos])
+        metrics[pfx + 'ModeLen'] = lengths.index(max(lengths)) + 1
+    # Add the version, create the pandas object, write it to file.
+    metrics['softwareSeqTKversion_fqchk'] = seqtk_version()
+    metrics_df = create_pandas_df(metrics, isolate)
+    # NB: this will overwrite the outfile that was read in at the first step.
+    write_pandas_df(outfile, metrics_df)
+
+
+
+def run_kraken(infile, outfile, fmt, isolate, dbase, threads):
+    '''
+    Run Kraken on the infile.
+    '''
+
+    def do_kraken(cmd_kraken):
+        '''
+        This function exists so do_kraken() can be bypassed if there are no
+        infiles.
+        '''
+        #         cmd_krk_r = 'kraken-report --db '+dbase
+        cmd_grep = "grep -P '\\tS\\t'"
+        cmd_sed = "sed -e 's/%//g'"
+        cmd_sort = 'sort -k 1 -g -r'
+        cmd_head = 'head -3'
+        cmd_full = f'{cmd_kraken} | {cmd_grep} | {cmd_sed} | {cmd_sort} | {cmd_head}'
+        sys.stderr.write(cmd_full + '\n')
+
+        output = check_output(cmd_full, shell=True)
+        output2 = output.decode('UTF-8').split('\n')
+        kraken = [line.strip().split('\t') for line
+                  in [_f for _f in output2 if _f]]
+        print(f"{isolate} {kraken}")
+        return kraken
+
+    if fmt == 'reads':
+        if len(infile) == 2:
+            infiles = ' '.join(infile)
+            compression = ''
+            for i in infile:
+                # Compression test based on file extension using linux 'file'.
+                args = shlex.split('file ' + i)
+                proc = Popen(args, stdout=PIPE)
+                f_fmt = proc.communicate()[0].decode('UTF-8').rstrip().split()
+                if 'gzip' in f_fmt:
+                    compression = '--gzip-compressed '
+                    break
+                if 'bzip2' in f_fmt:
+                    compression = '--bzip2-compressed '
+                    break
+            cmd_kraken = f"kraken2 --threads {threads} --db {dbase} {compression} --paired --report {outfile} --output - --memory-mapping {infiles} && cat {outfile}"
+            #             cmd_kraken = 'kraken --threads '+str(threads)+' --db '+dbase +\
+            #                          ' --fastq-input '+compression +\
+            #                          '--paired --check-names '+infiles
+            kraken = do_kraken(cmd_kraken)
+        else:
+            # If no read pairs in list, kraken is an empty list.
+            kraken = []
+
+    if fmt == 'contigs':
+        if len(infile) == 1:
+            infile = ''.join(infile)
+            cmd_kraken = f"kraken2 --threads {threads} --db {dbase} --report {outfile} --output - --memory-mapping {infile} && cat {outfile}"
+            #
+            #             cmd_kraken = 'kraken --threads '+str(threads)+' --db '+dbase +\
+            #                          ' --fasta-input '+infile
+            kraken = do_kraken(cmd_kraken)
+        else:
+            kraken = []
+
+    def kraken_results_df_creator(kraken_hits, fmt):
+        '''
+        Take the 2D array from a kraken search and return result as a
+        dictionary.
+        '''
+        dict_hits = {}
+        k = 1
+        for i in range(0, len(kraken_hits)):
+            dict_hits['Sp_krkn_' + fmt + '_' + str(k)] = \
+                kraken_hits[i][5].lstrip()
+            dict_hits['Sp_krkn_' + fmt + '_' + str(k) + '_pc'] = kraken_hits[i][0]
+            k += 1
+        return dict_hits
+
+    if len(kraken) > 0:
+        krk_df = kraken_results_df_creator(kraken, fmt)
+    else:
+        krk_df = {}
+
+    def get_krkn_version():
+        '''
+        Get the Kraken software version and Kraken Database path.
+        '''
+        args = shlex.split('kraken2 -v')
+        proc = Popen(args, stdout=PIPE)
+        version = proc.communicate()[0].decode('UTF-8').rstrip().split('\n')[0]
+        return {'softwareKrakenVersion_' + fmt: version,
+                'softwareKrakenDB_' + fmt: dbase}
+
+    krk_vers_no = create_pandas_df(get_krkn_version(), isolate)
+    krk_result = create_pandas_df(krk_df, isolate)
+    kraken_df = pd.concat([krk_result, krk_vers_no], axis=1)
+    write_pandas_df(outfile, kraken_df)
+
+
+
+def run_mlst(assembly, outfile, isolate, species):
+    '''
+    Run Torsten's MLST program on the assembly.
+    '''
+
+    def parse_MLST_output(output):
+        ncol = len(output)
+        mlst_formatted_dict = {'MLST_Scheme': output[0],
+                               'MLST_ST': output[1]}
+        k = 1
+        for i in range(2, ncol):
+            mlst_formatted_dict['MLST_Locus' + str(k)] = output[i]
+            k += 1
+        return mlst_formatted_dict
+
+    mlst_df_collect = []
+    if len(assembly) == 0:
+        mlst_formatted_dict = {}
+        mlst_df = create_pandas_df(mlst_formatted_dict, isolate)
+        mlst_df_collect.append(mlst_df)
+
+    if len(assembly) == 1:
+        assembly = assembly[0]
+        sp_scheme = None
+        if isinstance(species, str):
+            if species in FORCE_MLST_SCHEME:
+                sp_scheme = FORCE_MLST_SCHEME[species]
+            elif species.split(' ')[0] in FORCE_MLST_SCHEME:
+                sp_scheme = FORCE_MLST_SCHEME[species.split(' ')[0]]
+            else:
+                sp_scheme = FORCE_MLST_SCHEME["Acinetobacter baumannii"]
+        if sp_scheme is not None:
+            if type(sp_scheme) == str:
+                sp_scheme = [sp_scheme]
+
+            for _sp_scheme in sp_scheme:
+                cmd = 'mlst --scheme ' + _sp_scheme + ' --quiet ' + \
+                      assembly
+                args_mlst = shlex.split(cmd)
+                proc = Popen(args_mlst, stdout=PIPE)
+                output = proc.communicate()[0].decode('UTF-8')
+                out = output.rstrip().split('\t')[1:]
+                mlst_formatted_dict = parse_MLST_output(out)
+                mlst_df = create_pandas_df(mlst_formatted_dict, isolate)
+                mlst_df_collect.append(mlst_df)
+        else:
+            cmd = 'mlst --quiet ' + assembly
+            args_mlst = shlex.split(cmd)
+            proc = Popen(args_mlst, stdout=PIPE)
+            output = proc.communicate()[0].decode('UTF-8')
+            out = output.rstrip().split('\t')[1:]
+            mlst_formatted_dict = parse_MLST_output(out)
+            mlst_df = create_pandas_df(mlst_formatted_dict, isolate)
+            mlst_df_collect.append(mlst_df)
+
+    def get_mlst_version():
+        '''
+        Get the MLST software version.
+        '''
+        args = shlex.split('mlst -v')
+        proc = Popen(args, stdout=PIPE)
+        version = proc.communicate()[0].decode('UTF-8').rstrip().split('\t')[0]
+        return {'softwareMLSTversion': version}
+
+    mlst_version = create_pandas_df(get_mlst_version(), isolate)
+    mlst_df = pd.concat(mlst_df_collect + [mlst_version], axis=1)
+    write_pandas_df(outfile, mlst_df)
 
 
 ############################################################
