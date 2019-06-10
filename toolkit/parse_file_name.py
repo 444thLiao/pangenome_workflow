@@ -60,8 +60,8 @@ def validate_df(df):
                                  "data_input.template")
     columns_values = open(template_file).read().strip('\n').split('\t')
 
-    if set(df.columns) != set(columns_values):
-        raise Exception("INPUT file has unknown header")
+    if set(list(df.columns)+[df.index.name]) != set(columns_values):
+        raise Exception("INPUT file has unknown header. %s should be %s" % (';'.join(df.columns),';'.join(columns_values)))
 
     if df.loc[df.index.drop_duplicates(), :].shape[0] != df.shape[0]:
         raise Exception("sample name contains duplicates")

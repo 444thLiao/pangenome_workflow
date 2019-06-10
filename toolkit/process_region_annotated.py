@@ -22,7 +22,10 @@ def get_accessory_obj(roary_dir,
     # 3. identical prokka_o and corresponding gff (If this prokka is not the same, the locus ID will be different)
     locus2group = get_locus2group(roary_dir)  #
 
-    locus2annotate_df = pd.read_csv(abricate_file, sep=',', index_col=0)
+    try:
+        locus2annotate_df = pd.read_csv(abricate_file, sep=',', index_col=0)
+    except pd.errors.EmptyDataError:
+        return None
     locus2annotate = locus2annotate_df.loc[:, 'gene'].to_dict()
 
     sample2gff = {}

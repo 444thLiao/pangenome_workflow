@@ -1,9 +1,8 @@
-import time
-
 import luigi
 
 from pipelines import constant_str as constant
 from pipelines.tasks import *
+
 
 class base_luigi_task(luigi.Task):
     odir = luigi.Parameter()
@@ -65,6 +64,7 @@ class fastqc(base_luigi_task):
             for _o in self.output():
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
+
 class multiqc(base_luigi_task):
     PE_data = luigi.TupleParameter()
     status = luigi.Parameter()
@@ -120,6 +120,7 @@ class multiqc(base_luigi_task):
         if self.dry_run:
             run_cmd("touch %s" % self.output().path, dry_run=False)
 
+
 class preprocess_SE(base_luigi_task):
     R1 = luigi.Parameter()
     sample_name = luigi.Parameter()
@@ -144,6 +145,7 @@ class preprocess_SE(base_luigi_task):
                 log_file=self.get_log_path())
         if self.dry_run:
             run_cmd("touch %s" % self.output().path, dry_run=False)
+
 
 class trimmomatic(base_luigi_task):
     R1 = luigi.Parameter()
@@ -181,6 +183,7 @@ class trimmomatic(base_luigi_task):
         if self.dry_run:
             for _o in self.output():
                 run_cmd("touch %s" % _o.path, dry_run=False)
+
 
 class quast(base_luigi_task):
     R1 = luigi.Parameter()
@@ -294,6 +297,7 @@ class shovill(base_luigi_task):
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
+
 class prokka(base_luigi_task):
     R1 = luigi.Parameter()
     R2 = luigi.Parameter()
@@ -323,7 +327,7 @@ class prokka(base_luigi_task):
                                               str(self.sample_name) + '.gff'))
 
     def run(self):
-        valid_path(self.output().path,check_ofile=1)
+        valid_path(self.output().path, check_ofile=1)
         prokka_in_file = self.input().path
 
         run_prokka(infile=prokka_in_file,
@@ -333,6 +337,7 @@ class prokka(base_luigi_task):
         if self.dry_run:
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)
+
 
 class roary(base_luigi_task):
     # comparative
@@ -361,7 +366,7 @@ class roary(base_luigi_task):
                 luigi.LocalTarget(os.path.join(odir, "clustered_proteins"))]
 
     def run(self):
-        valid_path(self.output()[0].path,check_ofile=1)
+        valid_path(self.output()[0].path, check_ofile=1)
         run_roary(os.path.dirname(os.path.dirname(self.input()[0].path)),
                   os.path.dirname(self.output()[0].path),
                   thread=constant.p_roary,  # todo: determine the thread
@@ -370,6 +375,7 @@ class roary(base_luigi_task):
         if self.dry_run:
             for _o in self.output():
                 run_cmd("touch %s" % _o.path, dry_run=False)
+
 
 class fasttree(base_luigi_task):
     # comparative
@@ -395,6 +401,7 @@ class fasttree(base_luigi_task):
         if self.dry_run:
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)
+
 
 class pandoo(base_luigi_task):
     # todo: dissect pandoo into two.
@@ -455,10 +462,12 @@ class pandoo(base_luigi_task):
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
+
 class abricate(base_luigi_task):
     # single and joint
     PE_data = luigi.TupleParameter()
     SE_data = luigi.TupleParameter()
+
     def requires(self):
         require_tasks = []
         require_tasks.append(roary(PE_data=self.PE_data,
@@ -503,6 +512,7 @@ class abricate(base_luigi_task):
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
+
 class ISEscan(base_luigi_task):
     # single
     R1 = luigi.Parameter()
@@ -535,7 +545,7 @@ class ISEscan(base_luigi_task):
         return luigi.LocalTarget(ofile)
 
     def run(self):
-        valid_path(self.output().path,check_ofile=1)
+        valid_path(self.output().path, check_ofile=1)
         infile_pth = self.input().path
 
         run_ISEscan(infile=infile_pth,
@@ -553,6 +563,7 @@ class ISEscan(base_luigi_task):
         if self.dry_run:
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)
+
 
 class ISEscan_summary(base_luigi_task):
     # joint
@@ -621,6 +632,7 @@ class ISEscan_summary(base_luigi_task):
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
+
 class detect_plasmid(base_luigi_task):
     # joint
     PE_data = luigi.TupleParameter()
@@ -655,6 +667,7 @@ class detect_plasmid(base_luigi_task):
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
+
 class phigaro(ISEscan):
     # single
 
@@ -668,7 +681,7 @@ class phigaro(ISEscan):
         return luigi.LocalTarget(ofile)
 
     def run(self):
-        valid_path(self.output().path,check_ofile=1)
+        valid_path(self.output().path, check_ofile=1)
 
         infile_pth = self.input().path
 
@@ -710,7 +723,7 @@ class phigaro_summary(ISEscan_summary):
         return luigi.LocalTarget(ofile)
 
     def run(self):
-        valid_path(self.output().path,check_ofile=1)
+        valid_path(self.output().path, check_ofile=1)
         if not self.dry_run:
             total_samples = [sn for sn, _R1, _R2 in self.PE_data] + \
                             [sn for sn, _R1 in self.SE_data]
@@ -740,7 +753,6 @@ class phigaro_summary(ISEscan_summary):
         if self.dry_run:
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)
-
 
 
 if __name__ == '__main__':
