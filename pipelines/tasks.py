@@ -1,17 +1,16 @@
-import copy
-import os
-import sys
 from glob import glob
 
-import pandas as pd
+import numpy as np
 from BCBio import GFF
 
+from toolkit.get_version import *
 from toolkit.process_region_annotated import *
-from toolkit.utils import run_cmd, valid_path
+from toolkit.utils import valid_path, write_pandas_df
 from .constant_str import *
 
 
 def check_exe():
+    # todo: use it to check the validation of application
     def check_exists(exe_file):
         if os.path.isfile(exe_file):
             return exe_file
@@ -325,6 +324,7 @@ def run_phigaro(infile,
                              thread=thread, )
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
+
 # todo: add more post-analysis to it.
 # checkM (completeness of assembly data) https://github.com/Ecogenomics/CheckM
 # popins (new IS) https://github.com/bkehr/popins
@@ -350,149 +350,128 @@ def run_gubbins(infile,
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 
-def run_seqtk(infile, outfile, isolate):
+def run_seqtk(infile, outfile, isolate,
+              dry_run=False,
+              log_file=None):
     '''
-    # fixme:
-    Runs SeqTK on the contigs.fa (assemblies).  Gathers the fasta metrics.
+    Runs SeqTK on the contigs.fa (assemblies).
+    Gathers the fasta metrics.
+    process only one infile each time.
     '''
-    if len(infile) == 0:
-        metrics = {}
-    else:
-        os.system('seqtk comp ' + ''.join(infile) + ' > ' + outfile)
-        df1 = pd.read_csv(outfile, header=None, index_col=0, sep='\t',
-                          names=['chr', 'length', '#A', '#C', '#G', '#T', '#2',
-                                 '#3', '#4', '#CpG', '#tv', '#ts', '#CpG-ts'])
-        contig_lengths = df1['length'].tolist()
-        contig_lengths.sort(), contig_lengths.reverse()
-        contig_lengths_prime = [[i] * i for i in contig_lengths]
-        metrics = {}
-        pfx = 'metricsContigs_'
-        metrics[pfx + 'N50'] = int(np.median([i for j in contig_lengths_prime
-                                              for i in j]))
-        bps = sum(contig_lengths)
-        nns = sum(df1['#4'].tolist())
-        metrics[pfx + 'Ns'] = nns
-        metrics[pfx + 'no'] = len(df1.index.values)
-        metrics[pfx + 'bp'] = bps
-        metrics[pfx + 'avg'] = bps / len(contig_lengths)
-        metrics[pfx + 'Max'] = max(contig_lengths)
-        metrics[pfx + 'Min'] = min(contig_lengths)
-        metrics[pfx + 'ok'] = bps - nns
+    assert os.path.isfile(infile)
+    run_cmd('seqtk comp ' + infile + ' > ' + outfile,
+            dry_run=dry_run,
+            log_file=log_file)
+    df1 = pd.read_csv(outfile,
+                      header=None,
+                      index_col=0,
+                      sep='\t',
+                      names=['chr', 'length', '#A', '#C', '#G', '#T', '#2',
+                             '#3', '#4', '#CpG', '#tv', '#ts', '#CpG-ts'])
+    contig_lengths = df1['length'].tolist()
+    contig_lengths.sort(reverse=True)
+    # 从大到小
+    contig_lengths_prime = [[i] * i for i in contig_lengths]
+    metrics = {}
+    pfx = 'metricsContigs_'
+    metrics[pfx + 'N50'] = int(np.median([i for j in contig_lengths_prime
+                                          for i in j]))
+    # confirmed...
+    bps = sum(contig_lengths)
+    nns = sum(df1['#4'].tolist())
+    metrics[pfx + 'Ns'] = nns
+    metrics[pfx + 'no'] = len(df1.index.values)
+    metrics[pfx + 'bp'] = bps
+    metrics[pfx + 'avg'] = bps / len(contig_lengths)
+    metrics[pfx + 'Max'] = max(contig_lengths)
+    metrics[pfx + 'Min'] = min(contig_lengths)
+    metrics[pfx + 'ok'] = bps - nns
     metrics['sotwareSeqTKversion_comp'] = seqtk_version()
-    seqtk_comp_df = create_pandas_df(metrics, isolate)
-    # NB: this will overwrite the outfile that was read in at the first step.
+    seqtk_comp_df = pd.DataFrame.from_dict({isolate: metrics},
+                                           orient='index')
+    # become (1,8) df with isolate as only index
     write_pandas_df(outfile, seqtk_comp_df)
 
-def run_seqtk2(infile, outfile, isolate):
+
+def run_seqtk2(infile, outfile, isolate,
+               dry_run=False,
+               log_file=None):
     '''
-    fixme
-    Runs SeqTK fqchk on the reads.  Gathers fastq metrics.
+    Runs SeqTK fqchk on the reads.
+    If pair end sequencing fastq, input one.
+    Gathers fastq metrics.
     '''
+    assert os.path.isfile(infile)
     pfx = 'metricsReads_'
-    if len(infiles) == 0:
-        metrics = {}
+
+    run_cmd('seqtk fqchk ' + infile + ' > ' + outfile,
+            dry_run=dry_run,
+            log_file=log_file)
+    df_all = pd.read_csv(outfile,
+                         index_col=0,
+                         sep='\t',
+                         skiprows=1)
+
+    with open(outfile, 'r') as outf:
+        metrics = next(outf)
+        # 获取首行
+        metrics = dict([j.split(': ')
+                        for j in [i.strip()
+                                  for i in metrics.split(';')[0:3]]])
+        for key, value in list(metrics.items()):
+            metrics[pfx + key] = metrics.pop(key)
+        # 更新字典
+    metrics[pfx + 'AvgQual'] = round(df_all.loc['ALL', 'avgQ'], 2)
+    metrics[pfx + 'GeeCee'] = round(df_all.loc['ALL', '%C'] +
+                                    df_all.loc['ALL', '%G'], 2)
+    metrics[pfx + 'Yield'] = int(df_all.loc['ALL', '#bases'] * 2)
+
+    # Count the number of reads in the infiles.
+    cmd = "zgrep -c '^+$' " + infile
+    output = run_cmd(cmd,
+                     get_output=True,
+                     dry_run=False)
+    metrics[pfx + 'nReads(single file)'] = int(output)
+
+    # Get the mode read length.
+    n_bases = df_all['#bases'].values[1:]
+    lengths = []
+    pos = 0
+    while pos < len(n_bases) - 1:
+        lengths.append(n_bases[pos] - n_bases[pos + 1])
+        pos += 1
     else:
-        os.system('seqtk fqchk ' + ' '.join(infiles) + ' > ' + outfile)
-        df_all = pd.read_csv(outfile, index_col=0, sep='\t',
-                             skiprows=1)
-        with open(outfile, 'r') as outf:
-            metrics = outf.readline()
-            metrics = dict([j.split(':') for j in [i.replace(' ', '') for i in
-                                                   metrics.split(';')[0:3]]])
-            for key, value in list(metrics.items()):
-                metrics[pfx + key] = metrics.pop(key)
-        metrics[pfx + 'AvgQual'] = round(df_all.loc['ALL', 'avgQ'], 2)
-        metrics[pfx + 'GeeCee'] = round(df_all.loc['ALL', '%C'] +
-                                        df_all.loc['ALL', '%G'], 2)
-        metrics[pfx + 'Yield'] = int(df_all.loc['ALL', '#bases'] * 2)
-
-        # Count the number of reads in the infiles.
-        cmd = 'zcat ' + ' '.join(infiles)
-        cmd2 = 'wc -l'
-        args = shlex.split(cmd)
-        args2 = shlex.split(cmd2)
-        proc = Popen(args, stdout=PIPE, stderr=PIPE)
-        proc2 = Popen(args2, stdin=proc.stdout, stdout=PIPE)
-        output = proc2.communicate()[0].decode('UTF-8')
-        metrics[pfx + 'nReads'] = int(int(output) / 4)
-
-        # Get the mode read length.
-        n_bases = df_all['#bases'].values[1:]
-        lengths = []
-        pos = 0
-        while pos < len(n_bases) - 1:
-            lengths.append(n_bases[pos] - n_bases[pos + 1])
-            pos += 1
-        else:
-            lengths.append(n_bases[pos])
-        metrics[pfx + 'ModeLen'] = lengths.index(max(lengths)) + 1
+        lengths.append(n_bases[pos])
+    metrics[pfx + 'ModeLen'] = lengths.index(max(lengths)) + 1
     # Add the version, create the pandas object, write it to file.
     metrics['softwareSeqTKversion_fqchk'] = seqtk_version()
-    metrics_df = create_pandas_df(metrics, isolate)
+    metrics_df = pd.DataFrame.from_dict({isolate: metrics},
+                                        orient='index')
     # NB: this will overwrite the outfile that was read in at the first step.
     write_pandas_df(outfile, metrics_df)
 
 
-
-def run_kraken(infile, outfile, fmt, isolate, dbase, threads):
+def run_kraken(infile, outfile, fmt, isolate, dbase, threads,
+               dry_run=False,
+               log_file=None
+               ):
     '''
+    infile must be a list (even is a list with length==1)
     Run Kraken on the infile.
     '''
 
+    assert type(infile) != str
+
     def do_kraken(cmd_kraken):
-        '''
-        This function exists so do_kraken() can be bypassed if there are no
-        infiles.
-        '''
-        #         cmd_krk_r = 'kraken-report --db '+dbase
-        cmd_grep = "grep -P '\\tS\\t'"
-        cmd_sed = "sed -e 's/%//g'"
-        cmd_sort = 'sort -k 1 -g -r'
-        cmd_head = 'head -3'
-        cmd_full = f'{cmd_kraken} | {cmd_grep} | {cmd_sed} | {cmd_sort} | {cmd_head}'
-        sys.stderr.write(cmd_full + '\n')
-
-        output = check_output(cmd_full, shell=True)
-        output2 = output.decode('UTF-8').split('\n')
-        kraken = [line.strip().split('\t') for line
-                  in [_f for _f in output2 if _f]]
-        print(f"{isolate} {kraken}")
+        cmd_full = cmd_kraken + " | grep -P '\\tS\\t' | sed -e 's/%//g' | sort -k 1 -g -r | head -3"
+        output = run_cmd(cmd_full,
+                         get_output=True,
+                         dry_run=dry_run,
+                         log_file=log_file).split('\n')
+        kraken = [line.strip().split('\t')
+                  for line in
+                  [_f for _f in output if _f]]
         return kraken
-
-    if fmt == 'reads':
-        if len(infile) == 2:
-            infiles = ' '.join(infile)
-            compression = ''
-            for i in infile:
-                # Compression test based on file extension using linux 'file'.
-                args = shlex.split('file ' + i)
-                proc = Popen(args, stdout=PIPE)
-                f_fmt = proc.communicate()[0].decode('UTF-8').rstrip().split()
-                if 'gzip' in f_fmt:
-                    compression = '--gzip-compressed '
-                    break
-                if 'bzip2' in f_fmt:
-                    compression = '--bzip2-compressed '
-                    break
-            cmd_kraken = f"kraken2 --threads {threads} --db {dbase} {compression} --paired --report {outfile} --output - --memory-mapping {infiles} && cat {outfile}"
-            #             cmd_kraken = 'kraken --threads '+str(threads)+' --db '+dbase +\
-            #                          ' --fastq-input '+compression +\
-            #                          '--paired --check-names '+infiles
-            kraken = do_kraken(cmd_kraken)
-        else:
-            # If no read pairs in list, kraken is an empty list.
-            kraken = []
-
-    if fmt == 'contigs':
-        if len(infile) == 1:
-            infile = ''.join(infile)
-            cmd_kraken = f"kraken2 --threads {threads} --db {dbase} --report {outfile} --output - --memory-mapping {infile} && cat {outfile}"
-            #
-            #             cmd_kraken = 'kraken --threads '+str(threads)+' --db '+dbase +\
-            #                          ' --fasta-input '+infile
-            kraken = do_kraken(cmd_kraken)
-        else:
-            kraken = []
 
     def kraken_results_df_creator(kraken_hits, fmt):
         '''
@@ -508,29 +487,65 @@ def run_kraken(infile, outfile, fmt, isolate, dbase, threads):
             k += 1
         return dict_hits
 
+    cmd_kraken = ''
+    if fmt == 'reads':
+        assert len(infile) == 2
+        infiles = ' '.join(infile)
+        compression = ''
+        for i in infile:
+            # todo: that is a good idea to get file format!!!
+            # todo: write a unify function/module to get the format of any files.
+            # Compression test based on file extension using linux 'file'.
+            f_fmt = run_cmd('file ' + i,
+                            dry_run=False,
+                            get_output=True).rstrip().split()
+            if 'gzip' in f_fmt:
+                compression = '--gzip-compressed '
+                break
+            if 'bzip2' in f_fmt:
+                compression = '--bzip2-compressed '
+                break
+
+        cmd_kraken = "kraken2 --threads {threads} --db {dbase} {compression} --paired --report {outfile} --output - --memory-mapping {infiles} && cat {outfile}".format(
+            threads=threads,
+            dbase=dbase,
+            compression=compression,
+            outfile=outfile,
+            infiles=infiles)
+
+    if fmt == 'contigs':
+        assert len(infile) == 1
+        infile = infile[0]
+        cmd_kraken = "kraken2 --threads {threads} --db {dbase} --report {outfile} --output - --memory-mapping {infile} && cat {outfile}".format(
+            threads=threads,
+            dbase=dbase,
+            outfile=outfile,
+            infile=infile)
+    if cmd_kraken:
+        kraken = do_kraken(cmd_kraken)
+    else:
+        return
+
     if len(kraken) > 0:
         krk_df = kraken_results_df_creator(kraken, fmt)
     else:
         krk_df = {}
 
-    def get_krkn_version():
-        '''
-        Get the Kraken software version and Kraken Database path.
-        '''
-        args = shlex.split('kraken2 -v')
-        proc = Popen(args, stdout=PIPE)
-        version = proc.communicate()[0].decode('UTF-8').rstrip().split('\n')[0]
-        return {'softwareKrakenVersion_' + fmt: version,
-                'softwareKrakenDB_' + fmt: dbase}
-
-    krk_vers_no = create_pandas_df(get_krkn_version(), isolate)
-    krk_result = create_pandas_df(krk_df, isolate)
-    kraken_df = pd.concat([krk_result, krk_vers_no], axis=1)
+    krk_vers_no = pd.DataFrame.from_dict({isolate: get_krkn_version(kraken2_path)},
+                                         orient='index')
+    krk_result = pd.DataFrame.from_dict({isolate: krk_df},
+                                        orient='index')
+    kraken_df = pd.concat([krk_result,
+                           krk_vers_no], axis=1)
     write_pandas_df(outfile, kraken_df)
 
 
-
-def run_mlst(assembly, outfile, isolate, species):
+def run_mlst(assembly,
+             outfile,
+             isolate,
+             species,
+             dry_run=False,
+             log_file=None):
     '''
     Run Torsten's MLST program on the assembly.
     '''
@@ -548,53 +563,48 @@ def run_mlst(assembly, outfile, isolate, species):
     mlst_df_collect = []
     if len(assembly) == 0:
         mlst_formatted_dict = {}
-        mlst_df = create_pandas_df(mlst_formatted_dict, isolate)
+        mlst_df = pd.DataFrame.from_dict({isolate: mlst_formatted_dict},
+                                         orient='index')
         mlst_df_collect.append(mlst_df)
 
-    if len(assembly) == 1:
-        assembly = assembly[0]
-        sp_scheme = None
-        if isinstance(species, str):
-            if species in FORCE_MLST_SCHEME:
-                sp_scheme = FORCE_MLST_SCHEME[species]
-            elif species.split(' ')[0] in FORCE_MLST_SCHEME:
-                sp_scheme = FORCE_MLST_SCHEME[species.split(' ')[0]]
-            else:
-                sp_scheme = FORCE_MLST_SCHEME["Acinetobacter baumannii"]
-        if sp_scheme is not None:
-            if type(sp_scheme) == str:
-                sp_scheme = [sp_scheme]
-
-            for _sp_scheme in sp_scheme:
-                cmd = 'mlst --scheme ' + _sp_scheme + ' --quiet ' + \
-                      assembly
-                args_mlst = shlex.split(cmd)
-                proc = Popen(args_mlst, stdout=PIPE)
-                output = proc.communicate()[0].decode('UTF-8')
-                out = output.rstrip().split('\t')[1:]
-                mlst_formatted_dict = parse_MLST_output(out)
-                mlst_df = create_pandas_df(mlst_formatted_dict, isolate)
-                mlst_df_collect.append(mlst_df)
+    assert len(assembly) == 1
+    assembly = assembly[0]
+    sp_scheme = None
+    if isinstance(species, str):
+        if species in FORCE_MLST_SCHEME:
+            sp_scheme = FORCE_MLST_SCHEME[species]
+        elif species.split(' ')[0] in FORCE_MLST_SCHEME:
+            sp_scheme = FORCE_MLST_SCHEME[species.split(' ')[0]]
         else:
-            cmd = 'mlst --quiet ' + assembly
-            args_mlst = shlex.split(cmd)
-            proc = Popen(args_mlst, stdout=PIPE)
-            output = proc.communicate()[0].decode('UTF-8')
-            out = output.rstrip().split('\t')[1:]
-            mlst_formatted_dict = parse_MLST_output(out)
-            mlst_df = create_pandas_df(mlst_formatted_dict, isolate)
-            mlst_df_collect.append(mlst_df)
+            # todo: exception? or just print?
+            raise Exception("%s not have scheme" % species)
 
-    def get_mlst_version():
-        '''
-        Get the MLST software version.
-        '''
-        args = shlex.split('mlst -v')
-        proc = Popen(args, stdout=PIPE)
-        version = proc.communicate()[0].decode('UTF-8').rstrip().split('\t')[0]
-        return {'softwareMLSTversion': version}
+    if type(sp_scheme) == str:
+        sp_scheme = [sp_scheme]
 
-    mlst_version = create_pandas_df(get_mlst_version(), isolate)
+    for _sp_scheme in sp_scheme:
+        if _sp_scheme:
+            cmd = '{mlst_path} --scheme {scheme} --quier {infile}'.format(
+                mlst_path=mlst_path,
+                scheme=_sp_scheme,
+                infile=assembly)
+        else:
+            cmd = '{mlst_path} --quiet {infile}'.format(
+                mlst_path=mlst_path,
+                infile=assembly)
+
+        output = run_cmd(cmd,
+                         dry_run=dry_run,
+                         log_file=log_file,
+                         get_output=True)
+        out = output.rstrip().split('\t')[1:]
+        mlst_formatted_dict = parse_MLST_output(out)
+        mlst_df = pd.DataFrame.from_dict({isolate: mlst_formatted_dict},
+                                         orient='index')
+        mlst_df_collect.append(mlst_df)
+
+    mlst_version = pd.DataFrame.from_dict({isolate: get_mlst_version(mlst_path)},
+                                          orient='index')
     mlst_df = pd.concat(mlst_df_collect + [mlst_version], axis=1)
     write_pandas_df(outfile, mlst_df)
 
@@ -603,6 +613,9 @@ def run_mlst(assembly, outfile, isolate, species):
 
 def post_analysis(workflow_task):
     # only ofr workflow post analysis
+    if workflow_task.dry_run:
+        print("Dry run complete without post-analysis function.")
+        return
     roary_dir = os.path.dirname(workflow_task.input()["fasttree"].path)
     prokka_o = os.path.join(workflow_task.odir,
                             'prokka_o')
@@ -620,12 +633,18 @@ def post_analysis(workflow_task):
     locus2group, locus2annotate, sample2gff = get_accessory_obj(roary_dir,
                                                                 abricate_file,
                                                                 prokka_o)
-    empty_sample2gff = {sn: vals[1] for sn, vals in sample2gff.items()}
-    ori_sample2gff = {sn: vals[2] for sn, vals in sample2gff.items()}
+    # get locus annotation(abricate)/group(roary) from different files.
+    # sample2gff contains three objs:
+    #   gff_db(for query), empty_gff_obj(gff obj but removed features), gff_obj(complete gff obj)
+    empty_sample2gff = {sn: vals[1]
+                        for sn, vals in sample2gff.items()}
+    ori_sample2gff = {sn: vals[2]
+                      for sn, vals in sample2gff.items()}
 
     merged_locus2annotate = locus2group.copy()
     merged_locus2annotate.update(locus2annotate)
-    # merged together
+    # use annotate to overlap group info.
+    # merged them
     ############
     summary_task_tags = ["detect_prophage",
                          "detect_plasmid",
@@ -709,7 +728,7 @@ def post_analysis(workflow_task):
                                          "samples2annotate.csv"),
                             summary_odir))
     abricate_gff_dir = os.path.join(summary_odir,
-                                      "annotated_gff_simplified")
+                                    "annotated_gff_simplified")
     valid_path([abricate_gff_dir], check_odir=1)
     os.system("cp %s %s" % (os.path.join(abricate_dir,
                                          "*",

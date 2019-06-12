@@ -25,7 +25,7 @@ def get_accessory_obj(roary_dir,
     try:
         locus2annotate_df = pd.read_csv(abricate_file, sep=',', index_col=0)
     except pd.errors.EmptyDataError:
-        return None
+        return None,None,None
     locus2annotate = locus2annotate_df.loc[:, 'gene'].to_dict()
 
     sample2gff = {}

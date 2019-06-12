@@ -3,7 +3,7 @@ import random
 import string
 import sys
 from glob import glob
-from subprocess import check_call
+from subprocess import check_call,check_output
 
 import pandas as pd
 from Bio import SeqIO, Phylo
@@ -11,7 +11,7 @@ from Bio import SeqIO, Phylo
 
 
 
-def run_cmd(cmd, dry_run=False, log_file=None, **kwargs):
+def run_cmd(cmd, dry_run=False, log_file=None,get_output=False, **kwargs):
     outstream = None
     if type(log_file) == str:
         if os.path.isfile(log_file):
@@ -27,14 +27,22 @@ def run_cmd(cmd, dry_run=False, log_file=None, **kwargs):
 
     print(cmd, file=outstream)
     outstream.flush()
+
     if not dry_run:
-        check_call(cmd,
-                   shell=True,
-                   executable="/usr/bin/zsh",
-                   stdout=outstream,
-                   stderr=outstream,
-                   **kwargs)
-        outstream.flush()
+        if not get_output:
+            check_call(cmd,
+                       shell=True,
+                       executable="/usr/bin/zsh",
+                       stdout=outstream,
+                       stderr=outstream,
+                       **kwargs)
+            outstream.flush()
+        else:
+            result = check_output(cmd,
+                       shell=True
+                       )
+            r = result.decode("utf-8").strip('\n')
+            return r
 
 def valid_path(in_pth,
                check_size=False,
@@ -173,3 +181,8 @@ def get_group_dict(df, col):
     for idx, v in filtered_series.items():
         group_dict[v].append(idx)
     return group_dict
+
+def write_pandas_df(filename,output_df):
+    # todo: take it as a unify output function to avoid diversity output format.
+    # it could also handle some special situation.
+    output_df.to_csv(filename,index=1,sep='\t')
