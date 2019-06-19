@@ -350,7 +350,7 @@ def run_gubbins(infile,
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 
-def run_seqtk(infile, outfile, isolate,
+def run_seqtk_contig(infile, outfile, isolate,
               dry_run=False,
               log_file=None):
     '''
@@ -359,7 +359,8 @@ def run_seqtk(infile, outfile, isolate,
     process only one infile each time.
     '''
     assert os.path.isfile(infile)
-    run_cmd('seqtk comp ' + infile + ' > ' + outfile,
+    seqtk = seqtk_path
+    run_cmd(f'{seqtk} comp ' + infile + ' > ' + outfile,
             dry_run=dry_run,
             log_file=log_file)
     df1 = pd.read_csv(outfile,
@@ -393,7 +394,7 @@ def run_seqtk(infile, outfile, isolate,
     write_pandas_df(outfile, seqtk_comp_df)
 
 
-def run_seqtk2(infile, outfile, isolate,
+def run_seqtk_reads(infile, outfile, isolate,
                dry_run=False,
                log_file=None):
     '''
@@ -402,9 +403,10 @@ def run_seqtk2(infile, outfile, isolate,
     Gathers fastq metrics.
     '''
     assert os.path.isfile(infile)
+    outfile = os.path.realpath(outfile)
     pfx = 'metricsReads_'
-
-    run_cmd('seqtk fqchk ' + infile + ' > ' + outfile,
+    seqtk = seqtk_path
+    run_cmd(f'{seqtk} fqchk ' + infile + ' > ' + outfile,
             dry_run=dry_run,
             log_file=log_file)
     df_all = pd.read_csv(outfile,
@@ -451,7 +453,11 @@ def run_seqtk2(infile, outfile, isolate,
     write_pandas_df(outfile, metrics_df)
 
 
-def run_kraken(infile, outfile, fmt, isolate, dbase, threads,
+def run_kraken(infile,
+               outfile,
+               fmt,
+               dbase,
+               threads,
                dry_run=False,
                log_file=None
                ):
@@ -459,33 +465,7 @@ def run_kraken(infile, outfile, fmt, isolate, dbase, threads,
     infile must be a list (even is a list with length==1)
     Run Kraken on the infile.
     '''
-
     assert type(infile) != str
-
-    def do_kraken(cmd_kraken):
-        cmd_full = cmd_kraken + " | grep -P '\\tS\\t' | sed -e 's/%//g' | sort -k 1 -g -r | head -3"
-        output = run_cmd(cmd_full,
-                         get_output=True,
-                         dry_run=dry_run,
-                         log_file=log_file).split('\n')
-        kraken = [line.strip().split('\t')
-                  for line in
-                  [_f for _f in output if _f]]
-        return kraken
-
-    def kraken_results_df_creator(kraken_hits, fmt):
-        '''
-        Take the 2D array from a kraken search and return result as a
-        dictionary.
-        '''
-        dict_hits = {}
-        k = 1
-        for i in range(0, len(kraken_hits)):
-            dict_hits['Sp_krkn_' + fmt + '_' + str(k)] = \
-                kraken_hits[i][5].lstrip()
-            dict_hits['Sp_krkn_' + fmt + '_' + str(k) + '_pc'] = kraken_hits[i][0]
-            k += 1
-        return dict_hits
 
     cmd_kraken = ''
     if fmt == 'reads':
@@ -500,13 +480,14 @@ def run_kraken(infile, outfile, fmt, isolate, dbase, threads,
                             dry_run=False,
                             get_output=True).rstrip().split()
             if 'gzip' in f_fmt:
-                compression = '--gzip-compressed '
+                compression = '--gzip-compressed'
                 break
             if 'bzip2' in f_fmt:
-                compression = '--bzip2-compressed '
+                compression = '--bzip2-compressed'
                 break
 
-        cmd_kraken = "kraken2 --threads {threads} --db {dbase} {compression} --paired --report {outfile} --output - --memory-mapping {infiles} && cat {outfile}".format(
+        cmd_kraken = "{kraken2_path} --threads {threads} --db {dbase} {compression} --paired --report {outfile} --output {outfile}.kraken2_output --memory-mapping {infiles} ".format(
+            kraken2_path=kraken2_path,
             threads=threads,
             dbase=dbase,
             compression=compression,
@@ -516,97 +497,73 @@ def run_kraken(infile, outfile, fmt, isolate, dbase, threads,
     if fmt == 'contigs':
         assert len(infile) == 1
         infile = infile[0]
-        cmd_kraken = "kraken2 --threads {threads} --db {dbase} --report {outfile} --output - --memory-mapping {infile} && cat {outfile}".format(
+        cmd_kraken = "{kraken2_path} --threads {threads} --db {dbase} --report {outfile} --output {outfile}.kraken2_output --memory-mapping {infile} ".format(
+            kraken2_path=kraken2_path,
             threads=threads,
             dbase=dbase,
             outfile=outfile,
             infile=infile)
-    if cmd_kraken:
-        kraken = do_kraken(cmd_kraken)
-    else:
-        return
 
-    if len(kraken) > 0:
-        krk_df = kraken_results_df_creator(kraken, fmt)
-    else:
-        krk_df = {}
-
-    krk_vers_no = pd.DataFrame.from_dict({isolate: get_krkn_version(kraken2_path)},
-                                         orient='index')
-    krk_result = pd.DataFrame.from_dict({isolate: krk_df},
-                                        orient='index')
-    kraken_df = pd.concat([krk_result,
-                           krk_vers_no], axis=1)
-    write_pandas_df(outfile, kraken_df)
+    run_cmd(cmd_kraken, dry_run=dry_run, log_file=log_file)
 
 
 def run_mlst(assembly,
              outfile,
-             isolate,
              species,
+             return_opath=False,
              dry_run=False,
              log_file=None):
     '''
     Run Torsten's MLST program on the assembly.
+    For multiple input...
+    assembly must be a list even the length is 1
+    species is also a list with equal length as assembly
     '''
 
-    def parse_MLST_output(output):
-        ncol = len(output)
-        mlst_formatted_dict = {'MLST_Scheme': output[0],
-                               'MLST_ST': output[1]}
-        k = 1
-        for i in range(2, ncol):
-            mlst_formatted_dict['MLST_Locus' + str(k)] = output[i]
-            k += 1
-        return mlst_formatted_dict
-
-    mlst_df_collect = []
-    if len(assembly) == 0:
-        mlst_formatted_dict = {}
-        mlst_df = pd.DataFrame.from_dict({isolate: mlst_formatted_dict},
-                                         orient='index')
-        mlst_df_collect.append(mlst_df)
-
-    assert len(assembly) == 1
+    assert type(assembly) != str
     assembly = assembly[0]
-    sp_scheme = None
-    if isinstance(species, str):
-        if species in FORCE_MLST_SCHEME:
-            sp_scheme = FORCE_MLST_SCHEME[species]
-        elif species.split(' ')[0] in FORCE_MLST_SCHEME:
-            sp_scheme = FORCE_MLST_SCHEME[species.split(' ')[0]]
+    sp_scheme = defaultdict(list)
+    for _seq, _species in zip(assembly, species):
+        if _species in FORCE_MLST_SCHEME:
+            _scheme = FORCE_MLST_SCHEME[_species]
+            sp_scheme[_scheme].append(_seq)
+        elif _species.split(' ')[0] in FORCE_MLST_SCHEME:
+            _scheme = FORCE_MLST_SCHEME[_species.split(' ')[0]]
+            sp_scheme[_scheme].append(_seq)
         else:
             # todo: exception? or just print?
-            raise Exception("%s not have scheme" % species)
+            raise Exception("%s not have scheme" % _species)
 
-    if type(sp_scheme) == str:
-        sp_scheme = [sp_scheme]
+    if return_opath:
+        dry_run = True
+        log_file = None
+    ofiles = []
 
-    for _sp_scheme in sp_scheme:
-        if _sp_scheme:
-            cmd = '{mlst_path} --scheme {scheme} --quier {infile}'.format(
+    for idx, (_scheme, all_files) in enumerate(sp_scheme.items()):
+        if type(_scheme) == str:
+            cmd = '{mlst_path} --scheme {scheme} --quiet {infile} > {ofile}.{idx}'.format(
                 mlst_path=mlst_path,
-                scheme=_sp_scheme,
-                infile=assembly)
+                scheme=_scheme,
+                infile=' '.join(all_files),
+                ofile=outfile,
+                idx=idx)
+            run_cmd(cmd,
+                    dry_run=dry_run,
+                    log_file=log_file)
+            ofiles.append(f"{outfile}.{idx}")
         else:
-            cmd = '{mlst_path} --quiet {infile}'.format(
-                mlst_path=mlst_path,
-                infile=assembly)
-
-        output = run_cmd(cmd,
-                         dry_run=dry_run,
-                         log_file=log_file,
-                         get_output=True)
-        out = output.rstrip().split('\t')[1:]
-        mlst_formatted_dict = parse_MLST_output(out)
-        mlst_df = pd.DataFrame.from_dict({isolate: mlst_formatted_dict},
-                                         orient='index')
-        mlst_df_collect.append(mlst_df)
-
-    mlst_version = pd.DataFrame.from_dict({isolate: get_mlst_version(mlst_path)},
-                                          orient='index')
-    mlst_df = pd.concat(mlst_df_collect + [mlst_version], axis=1)
-    write_pandas_df(outfile, mlst_df)
+            for sub_scheme in _scheme:
+                cmd = '{mlst_path} --scheme {scheme} --quiet {infile} > {ofile}.{idx}.{scheme}'.format(
+                    mlst_path=mlst_path,
+                    scheme=sub_scheme,
+                    infile=' '.join(all_files),
+                    ofile=outfile,
+                    idx=idx)
+                run_cmd(cmd,
+                        dry_run=dry_run,
+                        log_file=log_file)
+                ofiles.append(f"{outfile}.{idx}.{sub_scheme}")
+    return ofiles
 
 
 ############################################################

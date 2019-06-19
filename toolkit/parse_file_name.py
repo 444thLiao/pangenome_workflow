@@ -11,8 +11,9 @@ class fileparser():
     def __init__(self, filename):
         filename = os.path.abspath(filename)
 
-        self.df = pd.read_csv(filename, sep='\t', index_col=0, dtype=str)
-        self.cols, self.df = validate_df(self.df)
+        self.df = pd.read_csv(filename, sep='\t', index_col=None, dtype=str)
+        self.cols, self.df = validate_df(self.df, filename)
+        self.df = self.df.set_index("sample ID")
 
     def get_attr(self, col):
         if col == self.df.index.name:
@@ -55,17 +56,24 @@ class fileparser():
         return singlereads
 
 
-def validate_df(df):
+def validate_df(df, filename):
     template_file = os.path.join(os.path.dirname(__file__),
                                  "data_input.template")
     columns_values = open(template_file).read().strip('\n').split('\t')
 
-    if set(list(df.columns)+[df.index.name]) != set(columns_values):
-        raise Exception("INPUT file has unknown header. %s should be %s" % (';'.join(df.columns),';'.join(columns_values)))
+    if set(df.columns) != set(columns_values):
+        raise Exception("INPUT file has unknown header. Should be %s, but %s input" % (";".join(df.columns),
+                                                                                       ";".join(columns_values)))
 
-    if df.loc[df.index.drop_duplicates(), :].shape[0] != df.shape[0]:
-        raise Exception("sample name contains duplicates")
-    both_null = df.loc[(df.iloc[:, 0].isna()) & (df.iloc[:, 1].isna()), :]
-    if both_null.shape[0] != 0:
-        raise Exception("Some rows doesn't have R1 and R2. ")
+    if df["sample ID"].duplicated().any():
+        raise Exception("sample ID has duplicated.")
+
+    chdir = os.path.dirname(os.path.abspath(filename))
+    # os.chdir(chdir)
+    # print('chdir',chdir)
+    for idx, row in df.iterrows():
+        # auto implement filepath
+        # so easy~~~
+        row["R1"] = row["R1"] if pd.isna(row["R1"]) else os.path.join(chdir, row["R1"])
+        row["R2"] = row["R2"] if pd.isna(row["R2"]) else os.path.join(chdir, row["R2"])
     return columns_values, df

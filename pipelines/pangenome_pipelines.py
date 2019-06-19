@@ -24,6 +24,8 @@ class fastqc(base_luigi_task):
 
     def requires(self):
         if self.status == 'before':
+            "before trimmomatic/other QC"
+            "it doesn't need to require to any tasks"
             return
         elif self.status == 'after':
             return trimmomatic(R1=self.R1,
@@ -122,6 +124,9 @@ class multiqc(base_luigi_task):
 
 
 class preprocess_SE(base_luigi_task):
+    """
+    For create symblioc link to cleandata directory.
+    """
     R1 = luigi.Parameter()
     sample_name = luigi.Parameter()
 
@@ -367,6 +372,7 @@ class roary(base_luigi_task):
 
     def run(self):
         valid_path(self.output()[0].path, check_ofile=1)
+
         run_roary(os.path.dirname(os.path.dirname(self.input()[0].path)),
                   os.path.dirname(self.output()[0].path),
                   thread=constant.p_roary,  # todo: determine the thread
@@ -403,64 +409,124 @@ class fasttree(base_luigi_task):
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
 
-class pandoo(base_luigi_task):
-    # todo: dissect pandoo into two.
-    # single and joint
+class seqtk_tasks(base_luigi_task):
+    R1 = luigi.Parameter()
+    R2 = luigi.Parameter(default=None)
+    sample_name = luigi.Parameter(default=None)
+
+    def requires(self):
+        if self.R2 is None:
+            return preprocess_SE(R1=self.R1,
+                                 sample_name=self.sample_name,
+                                 odir=self.odir,
+                                 dry_run=self.dry_run,
+                                 log_path=self.log_path)
+        else:
+            return shovill(R1=self.R1,
+                           R2=self.R2,
+                           sample_name=self.sample_name,
+                           status='regular',
+                           odir=self.odir,
+                           dry_run=self.dry_run,
+                           log_path=self.log_path, )
+
+    def output(self):
+        odir = os.path.join(str(self.odir), "seqtk_result")
+        valid_path(odir, check_odir=1)
+        ofiles = []
+
+        ofiles.append(os.path.join(odir,
+                                   "%s_assembly.summary" % self.sample_name))
+        if self.R2 is not None:
+            ofiles.append(os.path.join(odir,
+                                       "%s_reads.summary" % self.sample_name))
+
+        return [luigi.LocalTarget(_) for _ in ofiles]
+
+    def run(self):
+        odir = os.path.join(str(self.odir), "seqtk_result")
+        valid_path(odir, check_odir=1)
+        if self.dry_run:
+            for _ in self.output():
+                run_cmd("touch %s" % _,
+                        dry_run=False)
+            return
+
+        kwargs = dict(isolate=self.sample_name,
+                      dry_run=self.dry_run,
+                      log_file=self.log_path)
+
+        run_seqtk_contig(infile=self.input().path,
+                         outfile=os.path.join(odir,
+                                              "%s_assembly.summary" % self.sample_name),
+                         **kwargs
+                         )
+
+        if self.R2 is not None:
+            # input is PE fa, need to access the quality before and after assembly
+            run_seqtk_reads(infile=self.R1,
+                            outfile=os.path.join(odir,
+                                                 "%s_reads.summary" % self.sample_name),
+                            **kwargs
+                            )
+
+
+class seqtk_summary(base_luigi_task):
     PE_data = luigi.TupleParameter()
     SE_data = luigi.TupleParameter()
 
     def requires(self):
-        required_tasks = {}
-
-        required_tasks["PE"] = [shovill(R1=_R1,
-                                        R2=_R2,
-                                        sample_name=sn,
-                                        odir=self.odir,
-                                        dry_run=self.dry_run,
-                                        status='regular',
-                                        log_path=self.log_path) for sn, _R1, _R2 in self.PE_data]
-        required_tasks["SE"] = [preprocess_SE(R1=_R1,
-                                              odir=self.odir,
-                                              dry_run=self.dry_run,
-                                              sample_name=sn,
-                                              log_path=self.log_path) for sn, _R1 in self.SE_data]
+        required_tasks = []
+        required_tasks += [seqtk_tasks(R1=_R1,
+                                       R2=_R2,
+                                       sample_name=sn,
+                                       odir=self.odir,
+                                       dry_run=self.dry_run,
+                                       log_path=self.log_path)
+                           for sn, _R1, _R2 in self.PE_data]
+        required_tasks += [seqtk_tasks(R1=_R1,
+                                       sample_name=sn,
+                                       odir=self.odir,
+                                       dry_run=self.dry_run,
+                                       log_path=self.log_path)
+                           for sn, _R1 in self.SE_data]
         return required_tasks
 
     def output(self):
-        odir = os.path.join(str(self.odir),
-                            "pandoo_o")
-        ofile = os.path.join(odir,
-                             "pandoo_input_metadataAll.csv")
-        return luigi.LocalTarget(ofile)
+        # merged reads.summary into single file
+        # merged assembly.summary into single file
+        ofiles = [os.path.join(str(self.odir),
+                               "seqtk_assembly_accessment.csv"),
+                  os.path.join(str(self.odir),
+                               "seqtk_reads_accessment.csv")
+                  ]
+        return [luigi.LocalTarget(_) for _ in ofiles]
 
     def run(self):
-        valid_path(self.output().path, check_ofile=1)
-        pandoo_tab = pd.DataFrame()
-        for idx in range(len(self.PE_data)):
-            sn, _R1, _R2 = self.PE_data[idx]
-            contig_pth = self.input()["PE"][idx].path
-            pandoo_tab = pandoo_tab.append(pd.DataFrame([[contig_pth,
-                                                          _R1,
-                                                          _R2,
-                                                          ]], index=[sn]))
-        for idx in range(len(self.SE_data)):
-            sn, _R1 = self.SE_data[idx]
-            formatted_pth = self.input()["SE"][idx].path
-            pandoo_tab = pandoo_tab.append(pd.DataFrame([[formatted_pth,
-                                                          '',
-                                                          '',
-                                                          ]], index=[sn]))
-        pandoo_file = os.path.join(str(self.odir), "pandoo_input.tab")
-        with open(pandoo_file, 'w') as f1:
-            pandoo_tab.to_csv(f1, sep='\t', header=None, index=1)
-        run_pandoo(in_file=pandoo_file,
-                   odir=os.path.dirname(self.output().path),
-                   thread=constant.p_pandoo,  # todo: determine the thread
-                   dry_run=self.dry_run,
-                   log_file=self.get_log_path())
         if self.dry_run:
-            for _o in [self.output()]:
-                run_cmd("touch %s" % _o.path, dry_run=False)
+            for _ in self.ofiles:
+                run_cmd("touch %s" % _,
+                        dry_run=False)
+            return
+        input_files = [_
+                       for each_list in self.input()
+                       for _ in each_list]
+        assembly_files = [pd.read_csv(_.path, index_col=0, sep='\t')
+                          for _ in input_files
+                          if _.path.endswith("_assembly.summary")]
+        reads_files = [pd.read_csv(_.path, index_col=0, sep='\t')
+                       for _ in input_files
+                       if _.path.endswith("_reads.summary")]
+        if assembly_files:
+            total_assembly_f = pd.concat(assembly_files, axis=0)
+            total_assembly_f.to_csv(self.output()[0].path, index=1)
+
+        if reads_files:
+            total_reads_f = pd.concat(reads_files, axis=0)
+            total_reads_f.to_csv(self.output()[1].path, index=1)
+        else:
+            run_cmd("touch %s" % self.output()[1].path,
+                    dry_run=False)
 
 
 class abricate(base_luigi_task):
@@ -511,6 +577,90 @@ class abricate(base_luigi_task):
         if self.dry_run:
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)
+
+
+class mlst_task(base_luigi_task):
+    def requires(self):
+        pass
+
+    def output(self):
+        pass
+
+    def run(self):
+        pass
+
+
+class kraken2_tasks(seqtk_tasks):
+
+    def output(self):
+        odir = os.path.join(str(self.odir), "kraken2_report")
+        valid_path(odir, check_odir=1)
+        ofiles = []
+
+        ofiles.append(os.path.join(odir,
+                                   "%s_assembly.k2report" % self.sample_name))
+        if self.R2 is not None:
+            ofiles.append(os.path.join(odir,
+                                       "%s_reads.k2report" % self.sample_name))
+
+        return [luigi.LocalTarget(_) for _ in ofiles]
+
+    def run(self):
+        odir = os.path.join(str(self.odir), "kraken2_report")
+        valid_path(odir, check_odir=1)
+        if self.dry_run:
+            for _ in self.output():
+                run_cmd("touch %s" % _,
+                        dry_run=False)
+            return
+        kwargs = dict(dbase=kraken2_db,
+                      threads=p_kraken2,
+                      dry_run=self.dry_run,
+                      log_file=self.log_path)
+
+        run_kraken(infile=[self.input().path],
+                   fmt="contigs",
+                   outfile=os.path.join(odir,
+                                        "%s_assembly.k2report" % self.sample_name),
+                   **kwargs
+                   )
+
+        if self.R2 is not None:
+            # input is PE fa, need to access the quality before and after assembly
+            run_kraken(infile=[self.R1, self.R2],
+                       fmt="reads",
+                       outfile=os.path.join(odir,
+                                            "%s_reads.k2report" % self.sample_name),
+                       **kwargs
+                       )
+
+
+class kraken2_summary(base_luigi_task):
+    PE_data = luigi.TupleParameter()
+    SE_data = luigi.TupleParameter()
+
+    def requires(self):
+        required_tasks = []
+        required_tasks += [kraken2_tasks(R1=_R1,
+                                         R2=_R2,
+                                         sample_name=sn,
+                                         odir=self.odir,
+                                         dry_run=self.dry_run,
+                                         log_path=self.log_path)
+                           for sn, _R1, _R2 in self.PE_data]
+        required_tasks += [kraken2_tasks(R1=_R1,
+                                         sample_name=sn,
+                                         odir=self.odir,
+                                         dry_run=self.dry_run,
+                                         log_path=self.log_path)
+                           for sn, _R1 in self.SE_data]
+        return required_tasks
+
+    def output(self):
+        pass
+
+    def run(self):
+        pass
 
 
 class ISEscan(base_luigi_task):
@@ -659,7 +809,7 @@ class detect_plasmid(base_luigi_task):
     def run(self):
         assembly_odir = str(self.input()["shovill"][0].path).rsplit('/', maxsplit=3)[0]
 
-        run_plasmid_detect(indir=assembly_odir,  # todo: maybe not compatiable to windows OS.
+        run_plasmid_detect(indir=assembly_odir,  # todo: maybe not compatible to windows OS.
                            ofile=self.output().path,
                            dry_run=self.dry_run,
                            log_file=self.get_log_path())
@@ -755,16 +905,69 @@ class phigaro_summary(ISEscan_summary):
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
 
+#
+# class pandoo(base_luigi_task):
+#     # single and joint
+#     PE_data = luigi.TupleParameter()
+#     SE_data = luigi.TupleParameter()
+#
+#     def requires(self):
+#         required_tasks = {}
+#
+#         required_tasks["PE"] = [shovill(R1=_R1,
+#                                         R2=_R2,
+#                                         sample_name=sn,
+#                                         odir=self.odir,
+#                                         dry_run=self.dry_run,
+#                                         status='regular',
+#                                         log_path=self.log_path) for sn, _R1, _R2 in self.PE_data]
+#         required_tasks["SE"] = [preprocess_SE(R1=_R1,
+#                                               odir=self.odir,
+#                                               dry_run=self.dry_run,
+#                                               sample_name=sn,
+#                                               log_path=self.log_path) for sn, _R1 in self.SE_data]
+#         return required_tasks
+#
+#     def output(self):
+#         odir = os.path.join(str(self.odir),
+#                             "pandoo_o")
+#         ofile = os.path.join(odir,
+#                              "pandoo_input_metadataAll.csv")
+#         return luigi.LocalTarget(ofile)
+#
+#     def run(self):
+#         valid_path(self.output().path, check_ofile=1)
+#         pandoo_tab = pd.DataFrame()
+#         for idx in range(len(self.PE_data)):
+#             sn, _R1, _R2 = self.PE_data[idx]
+#             contig_pth = self.input()["PE"][idx].path
+#             pandoo_tab = pandoo_tab.append(pd.DataFrame([[contig_pth,
+#                                                           _R1,
+#                                                           _R2,
+#                                                           ]], index=[sn]))
+#         for idx in range(len(self.SE_data)):
+#             sn, _R1 = self.SE_data[idx]
+#             formatted_pth = self.input()["SE"][idx].path
+#             pandoo_tab = pandoo_tab.append(pd.DataFrame([[formatted_pth,
+#                                                           '',
+#                                                           '',
+#                                                           ]], index=[sn]))
+#         pandoo_file = os.path.join(str(self.odir), "pandoo_input.tab")
+#         with open(pandoo_file, 'w') as f1:
+#             pandoo_tab.to_csv(f1, sep='\t', header=None, index=1)
+#         run_pandoo(in_file=pandoo_file,
+#                    odir=os.path.dirname(self.output().path),
+#                    thread=constant.p_pandoo,  # todo: determine the thread
+#                    dry_run=self.dry_run,
+#                    log_file=self.get_log_path())
+#         if self.dry_run:
+#             for _o in [self.output()]:
+#                 run_cmd("touch %s" % _o.path, dry_run=False)
+#
+
 if __name__ == '__main__':
     luigi.run()
 
-    # luigi.build([workflow(tab="/home/liaoth/project/genome_pipelines/pipelines/test/test_input.tab",
-    #                       odir="/home/liaoth/project/genome_pipelines/pipelines/test/test_luigi",
-    #                       dry_run=False)],
-    #             workers=5,
-    #             local_scheduler=True
-    #             )
-    # _log_stream.close()
     # python -m luigi --module pipelines.luigi_pipelines workflow --tab /home/liaoth/project/genome_pipelines/pipelines/test/test_input.tab --odir /home/liaoth/project/genome_pipelines/pipelines/test/test_luigi  --parallel-scheduling --workers 12
     # local cmd
 

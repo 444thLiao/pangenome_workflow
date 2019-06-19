@@ -43,8 +43,10 @@ class workflow(luigi.Task):
                                              **unify_kwargs)
         require_tasks["fasttree"] = fasttree(SE_data=singlereads,
                                              **unify_kwargs)
-        require_tasks["pandoo"] = pandoo(SE_data=singlereads,
-                                         **unify_kwargs)
+        require_tasks["seqtk"] = seqtk_summary(SE_data=singlereads,
+                                               **unify_kwargs)
+        require_tasks["kraken2"] = kraken2_summary(SE_data=singlereads,
+                                                   **unify_kwargs)
         require_tasks["ISEscan_summary"] = ISEscan_summary(SE_data=singlereads,
                                                            **unify_kwargs)
 
