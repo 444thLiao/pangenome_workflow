@@ -35,7 +35,8 @@ class fileparser():
 
     def get_PE_rows(self):
         input_df = self.df
-        PE_rows = input_df.loc[(~input_df.iloc[:, 0].isna()) & (~input_df.iloc[:, 1].isna()), :]
+        PE_rows = input_df.loc[(~input_df.iloc[:, 0].isna()) &
+                               (~input_df.iloc[:, 1].isna()), :]
         # the rows which R1 and R2 are both not null
         return PE_rows
 

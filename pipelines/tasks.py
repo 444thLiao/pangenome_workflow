@@ -525,7 +525,6 @@ def run_mlst(assembly,
     '''
 
     assert type(assembly) != str
-    assembly = assembly[0]
     sp_scheme = defaultdict(list)
     for _seq, _species in zip(assembly, species):
         if _species in FORCE_MLST_SCHEME:

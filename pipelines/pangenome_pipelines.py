@@ -227,6 +227,10 @@ class quast(base_luigi_task):
             ref = other_info[str(self.sample_name)]["ref"]
             # todo: formatted header of dataframe
             gff = other_info[str(self.sample_name)]["gff"]
+            if pd.isna(ref) or str(ref) =="nan":
+                ref = None
+            if pd.isna(gff) or str(gff) =="nan":
+                gff = None
         else:
             ref = gff = None
 
