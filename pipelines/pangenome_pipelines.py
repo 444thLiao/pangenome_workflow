@@ -414,7 +414,6 @@ class fasttree(base_luigi_task):
 
 
 class seqtk_tasks(prokka):
-
     def output(self):
         odir = os.path.join(str(self.odir), "seqtk_result")
         valid_path(odir, check_odir=1)
@@ -565,7 +564,6 @@ class abricate(base_luigi_task):
 
 
 class mlst_task(prokka):
-
     def output(self):
         odir = os.path.join(str(self.odir),
                             "mlst_o",
@@ -579,35 +577,55 @@ class mlst_task(prokka):
 
         run_mlst(assembly=[mlst_in_file],
                  outfile=self.output().path,
+                 # it just a prefix not a file name
                  species=[constant.specific_specie],
                  dry_run=self.dry_run,
                  log_file=self.get_log_path())
+        from toolkit.process_mlst import parse_mlst
+        ofiles = glob(self.output().path + '*')
+        merged_df = parse_mlst(ofiles, sample_name=self.sample_name)
+        merged_df.to_csv(self.output().path, index=1)
         if self.dry_run:
             run_cmd("touch %s" % self.output().path, dry_run=False)
+
 
 class mlst_summary(base_luigi_task):
     PE_data = luigi.TupleParameter()
     SE_data = luigi.TupleParameter()
+
     def requires(self):
         required_tasks = []
         required_tasks += [mlst_task(R1=_R1,
-                                         R2=_R2,
-                                         sample_name=sn,
-                                         odir=self.odir,
-                                         dry_run=self.dry_run,
-                                         log_path=self.log_path)
+                                     R2=_R2,
+                                     sample_name=sn,
+                                     odir=self.odir,
+                                     dry_run=self.dry_run,
+                                     log_path=self.log_path)
                            for sn, _R1, _R2 in self.PE_data]
         required_tasks += [mlst_task(R1=_R1,
-                                         sample_name=sn,
-                                         odir=self.odir,
-                                         dry_run=self.dry_run,
-                                         log_path=self.log_path)
+                                     sample_name=sn,
+                                     odir=self.odir,
+                                     dry_run=self.dry_run,
+                                     log_path=self.log_path)
                            for sn, _R1 in self.SE_data]
         return required_tasks
+
     def output(self):
-        pass
+        ofile = os.path.join(str(self.odir),
+                             "mlst_all.csv", )
+        return luigi.LocalTarget(ofile)
+
     def run(self):
-        pass
+        infile_paths = [_.path for _ in self.input()]
+        from toolkit.process_mlst import main as merge_mlst
+        all_df = [pd.read_csv(_, index_col=0)
+                  for _ in infile_paths]
+        merged_df = pd.concat(all_df, axis=0)
+        total_mlst = merge_mlst(merged_df)
+        total_mlst.to_csv(self.output().path, index=1)
+        if self.dry_run:
+            run_cmd("touch %s" % self.output().path, dry_run=False)
+
 
 class kraken2_tasks(prokka):
 
@@ -676,10 +694,17 @@ class kraken2_summary(base_luigi_task):
         return required_tasks
 
     def output(self):
-        pass
+        ofile = os.path.join(str(self.odir),
+                             "kraken2_report.csv", )
+        return luigi.LocalTarget(ofile)
 
     def run(self):
-        pass
+        from toolkit.parse_kraken2 import merge_kraken2
+        infile_paths = [_.path
+                        for _l in self.input()
+                        for _ in _l]
+        merged_kraken2_report = merge_kraken2(infile_paths)
+        merged_kraken2_report.to_csv(self.output().path, index=1)
 
 
 class ISEscan(base_luigi_task):

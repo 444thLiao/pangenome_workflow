@@ -8,6 +8,24 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from pipelines.constant_str import mlst_db
 
 
+def parse_mlst(infiles,sample_name=None):
+
+    collect_df = []
+    for infile in infiles:
+        indf = pd.read_csv(infile,sep='\t',index_col=None,header=None)
+        header = ["raw_path","Scheme","ST"]
+        header += ["Locus%s" % (_+1)
+                   for _ in range(indf.shape[1]-len(header))]
+        indf.columns = header
+        collect_df.append(indf)
+    final_df = pd.concat(collect_df,axis=0)
+    if sample_name is None:
+        final_df.index= range(final_df.shape[0])
+    else:
+        final_df.index = [sample_name+'.%s' % _
+                          for _ in range(final_df.shape[0])]
+    return final_df
+
 def extract_gene(g_list):
     # input a row of info output by mlst
     # filterout not locus part with `list(val[[_ for _ in val.index if 'locus' in _.lower()]])`
@@ -129,6 +147,7 @@ def redefine_mlst(mlst_df: pd.DataFrame, scheme, db=mlst_db):
             else:
                 final_ST = 'ST%s' % ST
             mlst_df.loc[idx, '%s_ST.%s' % (scheme_source, (count + 1))] = final_ST
+
     return mlst_df
 
 
@@ -138,15 +157,15 @@ def main(mlst_df):
     schemes = set(mlst_df.Scheme)
     scheme_df_dict = {}
     for scheme in schemes:
-        scheme_df_dict[scheme] = mlst_df.loc[mlst_df.Scheme == scheme,:]
+        scheme_df_dict[scheme] = mlst_df.loc[mlst_df.Scheme == scheme, :]
 
     scheme_df_dict = {k: redefine_mlst(_df, scheme=k)
                       for k, _df in scheme_df_dict.items()}
 
     for scheme, _df in scheme_df_dict.items():
         output_mlst[scheme] = _df
-        # _df.to_csv(output_mlst.format(scheme=scheme), sep=',', index=True)
     return output_mlst
+
 
 if __name__ == '__main__':
     import argparse
@@ -169,8 +188,10 @@ if __name__ == '__main__':
     output_mlst = main(mlst_df)
     if prefix is None:
         prefix = os.path.basename(mlst_file).split('.')[0]
-    for scheme,odf  in output_mlst.items():
-        with open(os.path.join(odir,"{sn}_{scheme}_mlst.txt".format(sn=prefix,
-                                                                    scheme=scheme)),'w') as f1:
-            odf.to_csv(f1,index=1)
-    # todo: test is it useful for mlst only which without pandoo
+    for scheme, odf in output_mlst.items():
+        with open(os.path.join(odir,
+                               "{sn}_{scheme}_mlst.txt".format(
+                                   sn=prefix,
+                                   scheme=scheme)),
+                  'w') as f1:
+            odf.to_csv(f1, index=0)

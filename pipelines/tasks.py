@@ -673,7 +673,8 @@ def post_analysis(workflow_task):
     # mlst
     pandoo_ofile = workflow_task.input()["pandoo"].path
     pandoo_df = pd.read_csv(pandoo_ofile, index_col=0, )
-    mlst_df = pandoo_df.loc[:, pandoo_df.columns.str.contains("MLST")]
+    mlst_df = pandoo_df.loc[:,
+              pandoo_df.columns.str.contains("MLST")]
     from toolkit.process_mlst import main as process_mlst
     output_mlst_df = process_mlst(mlst_df)
     for scheme, mlst_df in output_mlst_df.items():

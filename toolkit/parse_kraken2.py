@@ -1,3 +1,6 @@
+import os
+from collections import defaultdict
+
 import pandas as pd
 
 # 1. Percentage of fragments covered by the clade rooted at this taxon
@@ -21,7 +24,7 @@ kraken2_header = ["percentage_frag",
                   "scientific name"]
 
 
-def parse_kraken2(infile,output_df=False):
+def parse_kraken2(infile, output_df=False):
     # todo: check some abnormal situations.
     df = pd.read_csv(infile, sep='\t', header=None)
     df.columns = kraken2_header
@@ -31,19 +34,39 @@ def parse_kraken2(infile,output_df=False):
     if output_df:
         return sorted_df
 
-    if sorted_df.iloc[0, 0] >= 90:
-        return sorted_df.iloc[0, -1]
+    get_lt90_df = sorted_df.loc[sorted_df.iloc[:, 0] >= 90, :]
+    if len(get_lt90_df.shape) == 2:
+        return (get_lt90_df.iloc[0, -1], get_lt90_df.iloc[0, 0])
     else:
-        return "unclassified, closely is %s" % sorted_df.iloc[0, -1]
+        return ("closely like %s" % sorted_df.iloc[0, -1],
+                sorted_df.iloc[0, 0])
 
 
 def merge_kraken2(infiles):
-    assembly_files = [pd.read_csv(_.path, index_col=0, sep='\t')
-                      for _ in infiles
-                      if _.endswith("_assembly.k2report")]
-    reads_files = [pd.read_csv(_.path, index_col=0, sep='\t')
-                   for _ in infiles
-                   if _.endswith("_reads.k2report")]
-    df_list = [parse_kraken2(_,
-                             output_df=True)
-               for _ in infiles]
+    merged_df = pd.DataFrame(columns=["read_kraken2_classify",
+                                      "read_kraken2 (%)",
+                                      "assembly_kraken2_classify",
+                                      "assembly_kraken2 (%)",
+                                      ])
+    s2paths = defaultdict(list)
+    for _ in infiles:
+        sample = os.path.basename(_).split('_assembly')[0]
+        s2paths[sample].append(_)
+
+    for s, paths in s2paths.items():
+        data = []
+        for _ in paths:
+            if _.endswith("_reads.k2report"):
+                result = parse_kraken2(_)
+                data += result
+        if not data:
+            data += ['', '']
+        for _ in paths:
+            if _.endswith("_assembly.k2report"):
+                result = parse_kraken2(_)
+                data += result
+        merged_df = merged_df.append(pd.DataFrame(data,
+                                                  columns=merged_df.columns,
+                                                  index=[s]))
+
+    return merged_df

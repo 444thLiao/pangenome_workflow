@@ -49,7 +49,8 @@ class workflow(luigi.Task):
                                                    **unify_kwargs)
         require_tasks["ISEscan_summary"] = ISEscan_summary(SE_data=singlereads,
                                                            **unify_kwargs)
-
+        require_tasks["mlst_summary"] = mlst_summary(SE_data=singlereads,
+                                                     **unify_kwargs)
         require_tasks["detect_plasmid"] = detect_plasmid(**unify_kwargs)
         require_tasks["detect_prophage"] = phigaro_summary(SE_data=singlereads,
                                                            **unify_kwargs)
