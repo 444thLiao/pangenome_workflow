@@ -36,7 +36,7 @@ class workflow(luigi.Task):
                                                 **unify_kwargs
                                                 )
         require_tasks["fastqc_quast"] = multiqc(status='quast',
-                                                other_info=json.dumps(other_info),
+                                                other_info=other_info,
                                                 **unify_kwargs
                                                 )
         require_tasks["abricate"] = abricate(SE_data=singlereads,

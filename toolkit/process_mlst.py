@@ -8,23 +8,23 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from pipelines.constant_str import mlst_db
 
 
-def parse_mlst(infiles,sample_name=None):
-
+def parse_mlst(infiles, sample_name=None):
     collect_df = []
     for infile in infiles:
-        indf = pd.read_csv(infile,sep='\t',index_col=None,header=None)
-        header = ["raw_path","Scheme","ST"]
-        header += ["Locus%s" % (_+1)
-                   for _ in range(indf.shape[1]-len(header))]
+        indf = pd.read_csv(infile, sep='\t', index_col=None, header=None)
+        header = ["raw_path", "Scheme", "ST"]
+        header += ["Locus%s" % (_ + 1)
+                   for _ in range(indf.shape[1] - len(header))]
         indf.columns = header
         collect_df.append(indf)
-    final_df = pd.concat(collect_df,axis=0)
+    final_df = pd.concat(collect_df, axis=0)
     if sample_name is None:
-        final_df.index= range(final_df.shape[0])
+        final_df.index = range(final_df.shape[0])
     else:
-        final_df.index = [sample_name+'.%s' % _
+        final_df.index = [sample_name + '.%s' % _
                           for _ in range(final_df.shape[0])]
     return final_df
+
 
 def extract_gene(g_list):
     # input a row of info output by mlst
@@ -162,9 +162,14 @@ def main(mlst_df):
     scheme_df_dict = {k: redefine_mlst(_df, scheme=k)
                       for k, _df in scheme_df_dict.items()}
 
+    collect_df = []
     for scheme, _df in scheme_df_dict.items():
+        _df.index = [str(_).split('.')[0] for _ in _df.index]
+        ST_columns = [_ for _ in _df.columns if "_ST" in _]
+        collect_df.append(_df.loc[:, ST_columns])
         output_mlst[scheme] = _df
-    return output_mlst
+    merged_df = pd.concat(collect_df, axis=1)
+    return output_mlst, merged_df
 
 
 if __name__ == '__main__':

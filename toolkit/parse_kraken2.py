@@ -65,7 +65,7 @@ def merge_kraken2(infiles):
             if _.endswith("_assembly.k2report"):
                 result = parse_kraken2(_)
                 data += result
-        merged_df = merged_df.append(pd.DataFrame(data,
+        merged_df = merged_df.append(pd.DataFrame([data],
                                                   columns=merged_df.columns,
                                                   index=[s]))
 

@@ -80,15 +80,17 @@ class multiqc(base_luigi_task):
                            sample_name=sn,
                            odir=self.odir,
                            dry_run=self.dry_run,
-                           log_path=self.log_path) for sn, _R1, _R2 in self.PE_data]
+                           log_path=self.log_path)
+                    for sn, _R1, _R2 in self.PE_data]
         elif self.status == "quast":
             return [quast(R1=_R1,
                           R2=_R2,
                           odir=self.odir,
                           sample_name=sn,
-                          other_info=self.other_info,
+                          other_info=self.other_info[sn],
                           dry_run=self.dry_run,
-                          log_path=self.log_path) for sn, _R1, _R2 in self.PE_data]
+                          log_path=self.log_path)
+                    for sn, _R1, _R2 in self.PE_data]
         else:
             raise Exception
 
@@ -223,13 +225,12 @@ class quast(base_luigi_task):
 
     def run(self):
         if self.other_info is not None:
-            other_info = json.loads(self.other_info)
-            ref = other_info[str(self.sample_name)]["ref"]
+            ref = self.other_info["ref"]
             # todo: formatted header of dataframe
-            gff = other_info[str(self.sample_name)]["gff"]
-            if pd.isna(ref) or str(ref) =="nan":
+            gff = self.other_info["gff"]
+            if pd.isna(ref) or str(ref) == "nan":
                 ref = None
-            if pd.isna(gff) or str(gff) =="nan":
+            if pd.isna(gff) or str(gff) == "nan":
                 gff = None
         else:
             ref = gff = None
@@ -625,8 +626,12 @@ class mlst_summary(base_luigi_task):
         all_df = [pd.read_csv(_, index_col=0)
                   for _ in infile_paths]
         merged_df = pd.concat(all_df, axis=0)
-        total_mlst = merge_mlst(merged_df)
-        total_mlst.to_csv(self.output().path, index=1)
+        mlst_df, merged_df = merge_mlst(merged_df)
+        for s, df in mlst_df.items():
+            df.to_csv(os.path.join(str(self.odir),
+                                   "mlst_o",
+                                   "total_%s.csv" % s), index=1)
+        merged_df.to_csv(self.output().path, index=1)
         if self.dry_run:
             run_cmd("touch %s" % self.output().path, dry_run=False)
 
@@ -758,6 +763,10 @@ class ISEscan(base_luigi_task):
             os.renames(ori_file,
                        os.path.join(odir,
                                     str(self.sample_name) + '.%s' % suffix))
+        if not glob(os.path.join(odir, '*')):
+            # it mean that no IS could be detected.
+            run_cmd("touch %s" % self.output().path, dry_run=False)
+
         if self.dry_run:
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)
@@ -800,7 +809,12 @@ class ISEscan_summary(base_luigi_task):
             columns=["sample",
                      "region",
                      "other info"])
-        for IS_gff, sample_name in zip(self.input()["IS_scan"], total_samples):
+        for IS_gff, sample_name in zip(self.input()["IS_scan"],
+                                       total_samples):
+            if os.path.getsize(os.path.abspath(IS_gff)) == 0:
+
+                # it mean no IS could be detected.
+                continue
             gff_dict = get_gff(IS_gff.path,
                                mode='bcbio')
             for contig, record in gff_dict.items():
