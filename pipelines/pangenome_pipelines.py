@@ -304,6 +304,10 @@ class shovill(base_luigi_task):
 
 
 class prokka(base_luigi_task):
+    """
+    representation of task which process assembly contigs or single raw reads.
+    For inheritance
+    """
     R1 = luigi.Parameter()
     R2 = luigi.Parameter()
     sample_name = luigi.Parameter()
@@ -409,26 +413,7 @@ class fasttree(base_luigi_task):
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
 
-class seqtk_tasks(base_luigi_task):
-    R1 = luigi.Parameter()
-    R2 = luigi.Parameter(default=None)
-    sample_name = luigi.Parameter(default=None)
-
-    def requires(self):
-        if self.R2 is None:
-            return preprocess_SE(R1=self.R1,
-                                 sample_name=self.sample_name,
-                                 odir=self.odir,
-                                 dry_run=self.dry_run,
-                                 log_path=self.log_path)
-        else:
-            return shovill(R1=self.R1,
-                           R2=self.R2,
-                           sample_name=self.sample_name,
-                           status='regular',
-                           odir=self.odir,
-                           dry_run=self.dry_run,
-                           log_path=self.log_path, )
+class seqtk_tasks(prokka):
 
     def output(self):
         odir = os.path.join(str(self.odir), "seqtk_result")
@@ -579,18 +564,52 @@ class abricate(base_luigi_task):
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
 
-class mlst_task(base_luigi_task):
-    def requires(self):
-        pass
+class mlst_task(prokka):
 
     def output(self):
-        pass
+        odir = os.path.join(str(self.odir),
+                            "mlst_o",
+                            str(self.sample_name))
+        return luigi.LocalTarget(os.path.join(odir,
+                                              str(self.sample_name)))
 
+    def run(self):
+        valid_path(self.output().path, check_ofile=1)
+        mlst_in_file = self.input().path
+
+        run_mlst(assembly=[mlst_in_file],
+                 outfile=self.output().path,
+                 species=[constant.specific_specie],
+                 dry_run=self.dry_run,
+                 log_file=self.get_log_path())
+        if self.dry_run:
+            run_cmd("touch %s" % self.output().path, dry_run=False)
+
+class mlst_summary(base_luigi_task):
+    PE_data = luigi.TupleParameter()
+    SE_data = luigi.TupleParameter()
+    def requires(self):
+        required_tasks = []
+        required_tasks += [mlst_task(R1=_R1,
+                                         R2=_R2,
+                                         sample_name=sn,
+                                         odir=self.odir,
+                                         dry_run=self.dry_run,
+                                         log_path=self.log_path)
+                           for sn, _R1, _R2 in self.PE_data]
+        required_tasks += [mlst_task(R1=_R1,
+                                         sample_name=sn,
+                                         odir=self.odir,
+                                         dry_run=self.dry_run,
+                                         log_path=self.log_path)
+                           for sn, _R1 in self.SE_data]
+        return required_tasks
+    def output(self):
+        pass
     def run(self):
         pass
 
-
-class kraken2_tasks(seqtk_tasks):
+class kraken2_tasks(prokka):
 
     def output(self):
         odir = os.path.join(str(self.odir), "kraken2_report")

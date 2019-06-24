@@ -76,4 +76,6 @@ def validate_df(df, filename):
         # so easy~~~
         row["R1"] = row["R1"] if pd.isna(row["R1"]) else os.path.join(chdir, row["R1"])
         row["R2"] = row["R2"] if pd.isna(row["R2"]) else os.path.join(chdir, row["R2"])
+        row["ref"] = row["ref"] if pd.isna(row["ref"]) else os.path.join(chdir, row["ref"])
+        row["gff"] = row["gff"] if pd.isna(row["gff"]) else os.path.join(chdir, row["gff"])
     return columns_values, df

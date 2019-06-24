@@ -110,9 +110,7 @@ def redefine_mlst(mlst_df: pd.DataFrame, scheme, db=mlst_db):
     db_file = os.path.join(db, scheme, scheme + '.txt')
     ST_df = pd.read_csv(db_file, sep='\t')
     for idx, val in tqdm(mlst_df.iterrows()):
-        gene_cols = list(val[[_
-                              for _ in val.index
-                              if 'locus' in _.lower()]])
+        gene_cols = list(val[[_ for _ in val.index if 'locus' in _.lower()]])
         gene_list, extract_st = extract_gene(gene_cols)
         st_list = construct_st(extract_st, [], '')
         st_list = [st_list] if type(st_list) == tuple else st_list
@@ -134,14 +132,21 @@ def redefine_mlst(mlst_df: pd.DataFrame, scheme, db=mlst_db):
 
 def main(mlst_df):
     output_mlst = {}
-
-    schemes = set(mlst_df.Scheme)
+    schemes = set([col.split('.')[-1]
+                   for col in mlst_df.columns
+                   if '.' in col])
     scheme_df_dict = {}
-    for scheme in schemes:
-        scheme_df_dict[scheme] = mlst_df.loc[mlst_df.Scheme == scheme,:]
-
-    scheme_df_dict = {k: redefine_mlst(_df, scheme=k)
-                      for k, _df in scheme_df_dict.items()}
+    sub_df = mlst_df.loc[:, [col
+                             for col in mlst_df.columns
+                             if '.' not in col]]
+    scheme = sub_df.loc[sub_df.index[0], [_ for _ in sub_df.columns if 'Scheme' in _]][0]
+    scheme_df_dict[scheme] = sub_df
+    for scheme_idx in schemes:
+        if scheme_idx:
+            sub_df = mlst_df.loc[:, [col for col in mlst_df.columns if '.' in col]]
+            scheme = sub_df.loc[sub_df.index[0], [_ for _ in sub_df.columns if 'Scheme.' + str(scheme_idx) in _]][0]
+            scheme_df_dict[scheme] = sub_df
+    scheme_df_dict = {k: redefine_mlst(_df, scheme=k) for k, _df in scheme_df_dict.items()}
 
     for scheme, _df in scheme_df_dict.items():
         output_mlst[scheme] = _df

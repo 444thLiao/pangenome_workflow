@@ -260,7 +260,10 @@ def run_quast(contig,
     if thread == 0 or thread == -1:
         thread = cpu_count()
     if not dry_run:
-        valid_path([contig, R1, R2, ref, gff], check_size=True)
+        paths = [_
+                 for _ in [contig, R1, R2, ref, gff]
+                 if not pd.isna(_)]
+        valid_path(paths, check_size=True)
     valid_path(odir, check_odir=True)
     extra_str = ''
     if ref is not None:
@@ -336,6 +339,7 @@ def run_gubbins(infile,
                 thread=0,
                 dry_run=False,
                 log_file=None):
+    #todo:
     # just like roary
     if thread == 0 or thread == -1:
         thread = cpu_count()
