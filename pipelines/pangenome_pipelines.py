@@ -811,7 +811,7 @@ class ISEscan_summary(base_luigi_task):
                      "other info"])
         for IS_gff, sample_name in zip(self.input()["IS_scan"],
                                        total_samples):
-            if os.path.getsize(os.path.abspath(IS_gff)) == 0:
+            if os.path.getsize(os.path.abspath(IS_gff.path)) == 0:
 
                 # it mean no IS could be detected.
                 continue

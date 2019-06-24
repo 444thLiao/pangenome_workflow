@@ -35,8 +35,10 @@ def parse_kraken2(infile, output_df=False):
         return sorted_df
 
     get_lt90_df = sorted_df.loc[sorted_df.iloc[:, 0] >= 90, :]
-    if len(get_lt90_df.shape) == 2:
+    if get_lt90_df.shape[0] != 0:
+
         return (get_lt90_df.iloc[0, -1], get_lt90_df.iloc[0, 0])
+
     else:
         return ("closely like %s" % sorted_df.iloc[0, -1],
                 sorted_df.iloc[0, 0])
@@ -51,6 +53,7 @@ def merge_kraken2(infiles):
     s2paths = defaultdict(list)
     for _ in infiles:
         sample = os.path.basename(_).split('_assembly')[0]
+        sample = sample.split("_reads")[0]
         s2paths[sample].append(_)
 
     for s, paths in s2paths.items():
@@ -60,11 +63,18 @@ def merge_kraken2(infiles):
                 result = parse_kraken2(_)
                 data += result
         if not data:
-            data += ['', '']
+            data += ["",""]
         for _ in paths:
             if _.endswith("_assembly.k2report"):
                 result = parse_kraken2(_)
                 data += result
+        if not data:
+            data += ["",""]
+        try:
+            assert len(data) == 4
+        except:
+            import pdb;pdb.set_trace()
+
         merged_df = merged_df.append(pd.DataFrame([data],
                                                   columns=merged_df.columns,
                                                   index=[s]))
