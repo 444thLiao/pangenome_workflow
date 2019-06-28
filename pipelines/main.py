@@ -60,8 +60,8 @@ def archive(indir, odir, name=None):
                                                    "abricate_result",
                                                    "locus2annotate.csv"),
                                target_dir=output_directory)
-    
-
+    run_cmd(cmd,dry_run=False)
+    print(cmd)
 
 
 @cli.command(help="analysis with test dataset, need to assign a output directory.")
