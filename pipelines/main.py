@@ -41,7 +41,7 @@ def archive(indir, odir, name=None):
         name = str(int(time.time()))
     output_directory = os.path.join(odir, "archived", name)
     valid_path(output_directory, check_odir=1)
-    cmd_template = "mv -r {source} {target_dir};"
+    cmd_template = "mv {source} {target_dir};"
     cmd = ''
     # for workflow
     cmd += cmd_template.format(source=os.path.join(indir,
