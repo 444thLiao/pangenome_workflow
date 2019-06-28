@@ -1,6 +1,7 @@
 import sys
-from os.path import dirname
 import time
+from os.path import dirname
+
 import click
 
 sys.path.insert(0, dirname(dirname(__file__)))
@@ -13,7 +14,7 @@ def cli():
 
 
 @cli.command()
-@click.argument('cmd',nargs=-1)
+@click.argument('cmd', nargs=-1)
 def run(cmd):
     luigi.run(cmdline_args=cmd)
 
@@ -38,6 +39,28 @@ def archive(indir, odir, name=None):
     "Just like the `clean` command, but it will archive these same result into a named directory."
     if name is None:
         name = str(int(time.time()))
+    output_directory = os.path.join(odir, "archived", name)
+    valid_path(output_directory, check_odir=1)
+    cmd_template = "mv -r {source} {target_dir};"
+    cmd = ''
+    # for workflow
+    cmd += cmd_template.format(source=os.path.join(indir,
+                                                   "pipelines_summary"),
+                               target_dir=output_directory)
+    # for phigaro, seqtk, mlst, plasmid, IS,
+    cmd += cmd_template.format(source=os.path.join(indir,
+                                                   "all_roary_o"),
+                               target_dir=output_directory)
+    # roary
+    cmd += cmd_template.format(source=os.path.join(indir,
+                                                   constant.summary_dir),
+                               target_dir=output_directory)
+    # for abricate
+    cmd += cmd_template.format(source=os.path.join(indir,
+                                                   "abricate_result",
+                                                   "locus2annotate.csv"),
+                               target_dir=output_directory)
+    
 
 
 
