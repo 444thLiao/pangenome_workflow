@@ -485,10 +485,13 @@ class seqtk_summary(base_luigi_task):
         # merged reads.summary into single file
         # merged assembly.summary into single file
         ofiles = [os.path.join(str(self.odir),
+                               constant.summary_dir,
                                "seqtk_assembly_accessment.csv"),
                   os.path.join(str(self.odir),
+                               constant.summary_dir,
                                "seqtk_reads_accessment.csv")
                   ]
+        valid_path(ofiles,check_ofile=1)
         return [luigi.LocalTarget(_) for _ in ofiles]
 
     def run(self):
@@ -617,6 +620,7 @@ class mlst_summary(base_luigi_task):
 
     def output(self):
         ofile = os.path.join(str(self.odir),
+                             constant.summary_dir,
                              "mlst_all.csv", )
         return luigi.LocalTarget(ofile)
 
@@ -704,6 +708,7 @@ class kraken2_summary(base_luigi_task):
 
     def output(self):
         ofile = os.path.join(str(self.odir),
+                             constant.summary_dir,
                              "kraken2_report.csv", )
         return luigi.LocalTarget(ofile)
 
@@ -795,8 +800,8 @@ class ISEscan_summary(base_luigi_task):
         return required_tasks
 
     def output(self):
-        odir = os.path.dirname(os.path.dirname(self.input()["IS_scan"][0].path))
-        ofile = os.path.join(odir,
+        ofile = os.path.join(str(self.odir),
+                             constant.summary_dir,
                              'IS_summary.tab')
 
         return luigi.LocalTarget(ofile)
@@ -838,8 +843,8 @@ class ISEscan_summary(base_luigi_task):
                                                                       region,
                                                                       json.dumps(other_info)]],
                                                                     columns=summary_df.columns,
-                                                                    index=[IS_id]))
-        summary_df.to_csv(self.output().path, index=1, sep='\t')
+                                                                    index=[IS_id + '_'+ sample_name]))
+        summary_df.to_csv(self.output().path, index=0, sep='\t')
         if self.dry_run:
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)
@@ -865,7 +870,7 @@ class detect_plasmid(base_luigi_task):
 
     def output(self):
         return luigi.LocalTarget(os.path.join(str(self.odir),
-                                              "plasmid_summary",
+                                              constant.summary_dir,
                                               "plasmid_summary.tab"))
 
     def run(self):
@@ -928,8 +933,8 @@ class phigaro_summary(ISEscan_summary):
         return required_tasks
 
     def output(self):
-        odir = os.path.dirname(os.path.dirname(self.input()["phigaro"][0].path))
-        ofile = os.path.join(odir,
+        ofile = os.path.join(str(self.odir),
+                             constant.summary_dir,
                              'phage_summary.tab')
 
         return luigi.LocalTarget(ofile)

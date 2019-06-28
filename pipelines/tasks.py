@@ -339,7 +339,7 @@ def run_gubbins(infile,
                 thread=0,
                 dry_run=False,
                 log_file=None):
-    #todo:
+    # todo:
     # just like roary
     if thread == 0 or thread == -1:
         thread = cpu_count()
@@ -355,8 +355,8 @@ def run_gubbins(infile,
 
 
 def run_seqtk_contig(infile, outfile, isolate,
-              dry_run=False,
-              log_file=None):
+                     dry_run=False,
+                     log_file=None):
     '''
     Runs SeqTK on the contigs.fa (assemblies).
     Gathers the fasta metrics.
@@ -399,8 +399,8 @@ def run_seqtk_contig(infile, outfile, isolate,
 
 
 def run_seqtk_reads(infile, outfile, isolate,
-               dry_run=False,
-               log_file=None):
+                    dry_run=False,
+                    log_file=None):
     '''
     Runs SeqTK fqchk on the reads.
     If pair end sequencing fastq, input one.
@@ -624,6 +624,7 @@ def post_analysis(workflow_task):
                 fea.qualifiers["ID"] = fea.qualifiers['locus_tag'] = [annotated]
                 fea.id = annotated
     ###########
+    # main part for generate multiple GFF files
     for tag, source, name in zip(summary_task_tags,
                                  summary_task_source,
                                  names):
@@ -670,15 +671,15 @@ def post_analysis(workflow_task):
 
     ############################################################
     # mlst
-    pandoo_ofile = workflow_task.input()["pandoo"].path
-    pandoo_df = pd.read_csv(pandoo_ofile, index_col=0, )
-    mlst_df = pandoo_df.loc[:,
-              pandoo_df.columns.str.contains("MLST")]
-    from toolkit.process_mlst import main as process_mlst
-    output_mlst_df = process_mlst(mlst_df)
-    for scheme, mlst_df in output_mlst_df.items():
-        with open(os.path.join(summary_odir, "%s_mlst.csv" % scheme), 'w') as f1:
-            mlst_df.to_csv(f1, index=1)
+    mlst_ofile = workflow_task.input()["mlst_summary"].path
+    pandoo_df = pd.read_csv(mlst_ofile, index_col=0)
+    type_ST = list(pandoo_df.columns)
+    type_ST = set([_.split('.')[0] for _ in type_ST])
+
+    for scheme in type_ST:
+        with open(os.path.join(summary_odir,
+                               "%s_mlst.csv" % scheme.replace('_ST', '')), 'w') as f1:
+            pandoo_df.loc[:, pandoo_df.columns.str.startswith(scheme)].to_csv(f1, index=1)
     ############################################################
     # abricate
     abricate_ofile = workflow_task.input()["abricate"].path
@@ -700,10 +701,19 @@ def post_analysis(workflow_task):
     core_gene_tree = workflow_task.input()["fasttree"].path
     os.system("cp %s %s" % (core_gene_tree,
                             summary_odir))
+    ############################################################
+    # roary plot
+    cmdline = "{roary_plot} {core_gene_tree} {ab_csv}".format(roary_plot=roary_plot_path,
+                                                              core_gene_tree=core_gene_tree,
+                                                              ab_csv=os.path.join(roary_dir,
+                                                                                  "gene_presence_absence.csv"))
+    run_cmd(cmdline,
+            dry_run=workflow_task.dry_run,
+            log_file=workflow_task.log_path)
 
 
 ############################################################
-def access_assembly(r1, r2, ref, gff, test_dir, dryrun=True):
+def accessment_assembly(r1, r2, ref, gff, test_dir, dryrun=True):
     os.makedirs(test_dir, exist_ok=True)
     contigs_list = []
     for depth in [100, 200, 300]:

@@ -1,8 +1,53 @@
 import sys
 from os.path import dirname
+import time
+import click
 
 sys.path.insert(0, dirname(dirname(__file__)))
 from pipelines import *
+
+
+@click.group()
+def cli():
+    pass
+
+
+@cli.command()
+@click.argument('cmd',nargs=-1)
+def run(cmd):
+    luigi.run(cmdline_args=cmd)
+
+
+@cli.command(help="Cleaning some output for performing sub-samples analysis. (just run it luigi pipelines again instead of run all steps again)")
+@click.option("-i", "--input_dir", "indir",
+              help="output directory which passed to `run` command")
+def clean(indir):
+    "Cleaning some output for performing sub-samples analysis. (just run it luigi pipelines again instead of run all steps again)"
+    # todo:
+    pass
+
+
+@cli.command(help="Just like the `clean` command instead of deleting ")
+@click.option("-i", "--input_dir", "indir",
+              help="output directory which passed to `run` command")
+@click.option("-o", "--output_dir", "odir",
+              help="A big directory for archive useless files")
+@click.option("-n", "--name", "name",
+              help="Given a name for identify this archived files...")
+def archive(indir, odir, name=None):
+    "Just like the `clean` command, but it will archive these same result into a named directory."
+    if name is None:
+        name = str(int(time.time()))
+
+
+
+@cli.command(help="analysis with test dataset, need to assign a output directory.")
+@click.option("-o", "--odir", help="output directory for testing ...")
+def testdata(odir):
+    project_root_path = dirname(dirname(__file__))
+    run_cmd(
+        f"python3 {project_root_path}/pipelines/main.py run -- workflow --tab {project_root_path}/pipelines/test/test_input.tab --odir {odir} --workers 2 --log-path {odir}/cmd_log.txt",
+        dry_run=False)
 
 
 class workflow(luigi.Task):
@@ -62,9 +107,10 @@ class workflow(luigi.Task):
 
 
 if __name__ == '__main__':
-    luigi.run()
+    cli()
+    # luigi.run()
 
-    # python -m luigi --module pipelines.luigi_pipelines workflow --tab /home/liaoth/project/genome_pipelines/pipelines/test/test_input.tab --odir /home/liaoth/project/genome_pipelines/pipelines/test/test_luigi  --parallel-scheduling --workers 12
+    # python  pipelines.luigi_pipelines.py workflow --tab /home/liaoth/project/genome_pipelines/pipelines/test/test_input.tab --odir /home/liaoth/project/genome_pipelines/pipelines/test/test_luigi  --parallel-scheduling --workers 12
     # local cmd
 
     # python -m luigi --module pipelines.luigi_pipelines workflow --tab /home/liaoth/tools/genome_pipelines/pipelines/test/test_input.tab --odir /home/liaoth/tools/genome_pipelines/pipelines/test/test_luigi  --parallel-scheduling --workers 12
