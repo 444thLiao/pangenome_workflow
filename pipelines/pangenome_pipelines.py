@@ -1,7 +1,6 @@
 import luigi
 
 from pipelines import constant_str as constant
-from pipelines import soft_db_path
 from pipelines.tasks import *
 
 
@@ -9,7 +8,7 @@ class base_luigi_task(luigi.Task):
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter(default=False)
     log_path = luigi.Parameter(default=None)
-    thread = luigi.Parameter(default=constant.total_thread)
+    thread = luigi.IntParameter(default=constant.total_thread)
 
     def get_log_path(self):
         base_log_path = self.log_path

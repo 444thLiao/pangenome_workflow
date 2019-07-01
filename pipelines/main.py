@@ -139,8 +139,9 @@ def recovery(indir, name=None):
                                       "regular_quast"),
                   rm=False)
     print(cmd)
-    input_cmd = input(f"Are you sure to recovery this file from {in_directory} \n It will first delete a lot of some directory at {indir}. such as `pipelines_summary`, `all_roary_o`, `summary_output`",
-                      )
+    input_cmd = input(
+        f"Are you sure to recovery this file from {in_directory} \n It will first delete a lot of some directory at {indir}. such as `pipelines_summary`, `all_roary_o`, `summary_output`",
+        )
 
     if str(input_cmd).lower() in ["y", "yes"]:
         run_cmd(cmd, dry_run=False)
@@ -160,7 +161,8 @@ class workflow(luigi.Task):
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter(default=False)
     log_path = luigi.Parameter(default=None)
-    thread = luigi.Parameter(default=constant.total_thread)
+    thread = luigi.IntParameter(default=constant.total_thread)
+
     def output(self):
         return luigi.LocalTarget(os.path.join(str(self.odir),
                                               "pipelines_summary"))
