@@ -1,6 +1,7 @@
 import luigi
 
 from pipelines import constant_str as constant
+from pipelines import soft_db_path
 from pipelines.tasks import *
 
 
@@ -8,11 +9,18 @@ class base_luigi_task(luigi.Task):
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter(default=False)
     log_path = luigi.Parameter(default=None)
+    thread = luigi.Parameter(default=constant.total_thread)
 
     def get_log_path(self):
         base_log_path = self.log_path
         if base_log_path is not None:
             return base_log_path
+
+    def get_kwargs(self):
+        return dict(odir=self.odir,
+                    dry_run=self.dry_run,
+                    log_path=self.log_path,
+                    thread=self.thread)
 
 
 # give some default parameter
@@ -23,6 +31,7 @@ class fastqc(base_luigi_task):
     status = luigi.Parameter(default="before")
 
     def requires(self):
+        kwargs = self.get_kwargs()
         if self.status == 'before':
             "before trimmomatic/other QC"
             "it doesn't need to require to any tasks"
@@ -30,10 +39,8 @@ class fastqc(base_luigi_task):
         elif self.status == 'after':
             return trimmomatic(R1=self.R1,
                                R2=self.R2,
-                               odir=self.odir,
                                sample_name=self.sample_name,
-                               dry_run=self.dry_run,
-                               log_path=self.log_path)
+                               **kwargs)
 
     def output(self):
         odir = os.path.join(str(self.odir),
@@ -73,23 +80,20 @@ class multiqc(base_luigi_task):
     other_info = luigi.DictParameter(default={})
 
     def requires(self):
+        kwargs = self.get_kwargs()
         if self.status == 'before' or self.status == 'after':
             return [fastqc(R1=_R1,
                            R2=_R2,
                            status=self.status,
                            sample_name=sn,
-                           odir=self.odir,
-                           dry_run=self.dry_run,
-                           log_path=self.log_path)
+                           **kwargs)
                     for sn, _R1, _R2 in self.PE_data]
         elif self.status == "quast":
             return [quast(R1=_R1,
                           R2=_R2,
-                          odir=self.odir,
                           sample_name=sn,
                           other_info=self.other_info[sn],
-                          dry_run=self.dry_run,
-                          log_path=self.log_path)
+                          **kwargs)
                     for sn, _R1, _R2 in self.PE_data]
         else:
             raise Exception
@@ -177,7 +181,7 @@ class trimmomatic(base_luigi_task):
                         odir=os.path.join(str(self.odir),
                                           "cleandata"),
                         sample_name=self.sample_name,
-                        thread=constant.p_trimmomatic,  # todo: determine the thread
+                        thread=self.thread - 1,  # todo: determine the thread
                         dry_run=self.dry_run,
                         log_file=self.get_log_path()
                         )
@@ -199,20 +203,17 @@ class quast(base_luigi_task):
     sample_name = luigi.Parameter()
 
     def requires(self):
+        kwargs = self.get_kwargs()
         return [shovill(R1=self.R1,
                         R2=self.R2,
-                        odir=self.odir,
-                        dry_run=self.dry_run,
                         sample_name=self.sample_name,
                         status="regular",
-                        log_path=self.log_path),
+                        **kwargs),
 
                 trimmomatic(R1=self.R1,
                             R2=self.R2,
-                            odir=self.odir,
                             sample_name=self.sample_name,
-                            dry_run=self.dry_run,
-                            log_path=self.log_path)]
+                            **kwargs)]
 
     def output(self):
         # todo: formatted the output directory
@@ -241,7 +242,7 @@ class quast(base_luigi_task):
                   ref=ref,
                   gff=gff,
                   odir=os.path.dirname(self.output().path),
-                  thread=constant.p_quast,  # todo: determine the thread
+                  thread=self.thread - 1,  # todo: determine the thread
                   dry_run=self.dry_run,
                   log_file=self.get_log_path())
         if self.dry_run:
@@ -256,12 +257,11 @@ class shovill(base_luigi_task):
     status = luigi.Parameter()
 
     def requires(self):
+        kwargs = self.get_kwargs()
         return trimmomatic(R1=self.R1,
                            R2=self.R2,
-                           odir=self.odir,
                            sample_name=self.sample_name,
-                           dry_run=self.dry_run,
-                           log_path=self.log_path)
+                           **kwargs)
 
     def output(self):
         if self.status == 'plasmid':
@@ -296,7 +296,7 @@ class shovill(base_luigi_task):
         run_shovill(R1=self.input()[0].path,
                     R2=self.input()[1].path,
                     odir=os.path.dirname(self.output().path),
-                    thread=constant.p_shovill,  # todo: determine the thread
+                    thread=self.thread - 1,  # todo: determine the thread
                     ram=constant.ram_shovill,  # todo
                     spades_extra_options=spades_extra_options,
                     extra_option=extra_option,
@@ -318,20 +318,18 @@ class prokka(base_luigi_task):
     sample_name = luigi.Parameter()
 
     def requires(self):
+        kwargs = self.get_kwargs()
         if not self.R2:
             return preprocess_SE(R1=self.R1,
-                                 odir=self.odir,
-                                 dry_run=self.dry_run,
                                  sample_name=self.sample_name,
-                                 log_path=self.log_path)
+                                 **kwargs)
         elif self.R2:
             return shovill(R1=self.R1,
                            R2=self.R2,
-                           odir=self.odir,
-                           dry_run=self.dry_run,
                            sample_name=self.sample_name,
                            status='regular',
-                           log_path=self.log_path)
+                           **kwargs
+                           )
 
     def output(self):
         odir = os.path.join(str(self.odir),
@@ -359,19 +357,16 @@ class roary(base_luigi_task):
     SE_data = luigi.TupleParameter()
 
     def requires(self):
+        kwargs = self.get_kwargs()
         return [prokka(R1=_R1,
                        R2=_R2,
                        sample_name=sn,
-                       odir=self.odir,
-                       dry_run=self.dry_run,
-                       log_path=self.log_path)
+                       **kwargs)
                 for sn, _R1, _R2 in self.PE_data] + \
                [prokka(R1=_R1,
                        R2='',
                        sample_name=sn,
-                       odir=self.odir,
-                       dry_run=self.dry_run,
-                       log_path=self.log_path)
+                       **kwargs)
                 for sn, _R1 in self.SE_data]
 
     def output(self):
@@ -384,7 +379,7 @@ class roary(base_luigi_task):
 
         run_roary(os.path.dirname(os.path.dirname(self.input()[0].path)),
                   os.path.dirname(self.output()[0].path),
-                  thread=constant.p_roary,  # todo: determine the thread
+                  thread=self.thread - 1,  # todo: determine the thread
                   dry_run=self.dry_run,
                   log_file=self.get_log_path())
         if self.dry_run:
@@ -398,11 +393,10 @@ class fasttree(base_luigi_task):
     SE_data = luigi.TupleParameter()
 
     def requires(self):
+        kwargs = self.get_kwargs()
         return roary(PE_data=self.PE_data,
                      SE_data=self.SE_data,
-                     odir=self.odir,
-                     dry_run=self.dry_run,
-                     log_path=self.log_path)
+                     **kwargs)
 
     def output(self):
         aln_file = self.input()[0].path
@@ -465,19 +459,16 @@ class seqtk_summary(base_luigi_task):
     SE_data = luigi.TupleParameter()
 
     def requires(self):
+        kwargs = self.get_kwargs()
         required_tasks = []
         required_tasks += [seqtk_tasks(R1=_R1,
                                        R2=_R2,
                                        sample_name=sn,
-                                       odir=self.odir,
-                                       dry_run=self.dry_run,
-                                       log_path=self.log_path)
+                                       **kwargs)
                            for sn, _R1, _R2 in self.PE_data]
         required_tasks += [seqtk_tasks(R1=_R1,
                                        sample_name=sn,
-                                       odir=self.odir,
-                                       dry_run=self.dry_run,
-                                       log_path=self.log_path)
+                                       **kwargs)
                            for sn, _R1 in self.SE_data]
         return required_tasks
 
@@ -491,7 +482,7 @@ class seqtk_summary(base_luigi_task):
                                constant.summary_dir,
                                "seqtk_reads_accessment.csv")
                   ]
-        valid_path(ofiles,check_ofile=1)
+        valid_path(ofiles, check_ofile=1)
         return [luigi.LocalTarget(_) for _ in ofiles]
 
     def run(self):
@@ -527,24 +518,19 @@ class abricate(base_luigi_task):
     SE_data = luigi.TupleParameter()
 
     def requires(self):
+        kwargs = self.get_kwargs()
         require_tasks = []
         require_tasks.append(roary(PE_data=self.PE_data,
                                    SE_data=self.SE_data,
-                                   odir=self.odir,
-                                   dry_run=self.dry_run,
-                                   log_path=self.log_path))
+                                   **kwargs))
         require_tasks += [prokka(R1=_R1,
                                  R2=_R2,
                                  sample_name=sn,
-                                 odir=self.odir,
-                                 dry_run=self.dry_run,
-                                 log_path=self.log_path) for sn, _R1, _R2 in self.PE_data]
+                                 **kwargs) for sn, _R1, _R2 in self.PE_data]
         require_tasks += [prokka(R1=_R1,
                                  R2='',
                                  sample_name=sn,
-                                 odir=self.odir,
-                                 dry_run=self.dry_run,
-                                 log_path=self.log_path) for sn, _R1 in self.SE_data]
+                                 **kwargs) for sn, _R1 in self.SE_data]
         return require_tasks
 
     def output(self):
@@ -562,7 +548,7 @@ class abricate(base_luigi_task):
         run_abricate(prokka_o,
                      roary_dir=roary_dir,
                      odir=os.path.dirname(self.output().path),
-                     thread=constant.p_abricate,  # todo: determine the thread
+                     thread=self.thread - 1,  # todo: determine the thread
                      mincov=constant.mincov_abricate,  # todo
                      dry_run=self.dry_run,
                      log_file=self.get_log_path())
@@ -586,7 +572,7 @@ class mlst_task(prokka):
         run_mlst(assembly=[mlst_in_file],
                  outfile=self.output().path,
                  # it just a prefix not a file name
-                 species=[constant.specific_specie],
+                 species=[constant.specific_species],
                  dry_run=self.dry_run,
                  log_file=self.get_log_path())
         from toolkit.process_mlst import parse_mlst
@@ -602,19 +588,16 @@ class mlst_summary(base_luigi_task):
     SE_data = luigi.TupleParameter()
 
     def requires(self):
+        kwargs = self.get_kwargs()
         required_tasks = []
         required_tasks += [mlst_task(R1=_R1,
                                      R2=_R2,
                                      sample_name=sn,
-                                     odir=self.odir,
-                                     dry_run=self.dry_run,
-                                     log_path=self.log_path)
+                                     **kwargs)
                            for sn, _R1, _R2 in self.PE_data]
         required_tasks += [mlst_task(R1=_R1,
                                      sample_name=sn,
-                                     odir=self.odir,
-                                     dry_run=self.dry_run,
-                                     log_path=self.log_path)
+                                     **kwargs)
                            for sn, _R1 in self.SE_data]
         return required_tasks
 
@@ -664,7 +647,7 @@ class kraken2_tasks(prokka):
                         dry_run=False)
             return
         kwargs = dict(dbase=kraken2_db,
-                      threads=p_kraken2,
+                      threads=self.thread - 1,
                       dry_run=self.dry_run,
                       log_file=self.log_path)
 
@@ -690,19 +673,16 @@ class kraken2_summary(base_luigi_task):
     SE_data = luigi.TupleParameter()
 
     def requires(self):
+        kwargs = self.get_kwargs()
         required_tasks = []
         required_tasks += [kraken2_tasks(R1=_R1,
                                          R2=_R2,
                                          sample_name=sn,
-                                         odir=self.odir,
-                                         dry_run=self.dry_run,
-                                         log_path=self.log_path)
+                                         **kwargs)
                            for sn, _R1, _R2 in self.PE_data]
         required_tasks += [kraken2_tasks(R1=_R1,
                                          sample_name=sn,
-                                         odir=self.odir,
-                                         dry_run=self.dry_run,
-                                         log_path=self.log_path)
+                                         **kwargs)
                            for sn, _R1 in self.SE_data]
         return required_tasks
 
@@ -728,20 +708,18 @@ class ISEscan(base_luigi_task):
     sample_name = luigi.Parameter()
 
     def requires(self):
+        kwargs = dict(R1=self.R1,
+                      odir=self.odir,
+                      dry_run=self.dry_run,
+                      sample_name=self.sample_name,
+                      log_path=self.log_path,
+                      thread=self.thread)
         if not self.R2:
-            return preprocess_SE(R1=self.R1,
-                                 odir=self.odir,
-                                 dry_run=self.dry_run,
-                                 sample_name=self.sample_name,
-                                 log_path=self.log_path)
+            return preprocess_SE(**kwargs)
         elif self.R2:
-            return shovill(R1=self.R1,
-                           R2=self.R2,
-                           sample_name=self.sample_name,
-                           odir=self.odir,
-                           dry_run=self.dry_run,
+            return shovill(R2=self.R2,
                            status='regular',
-                           log_path=self.log_path)
+                           **kwargs)
 
     def output(self):
         final_name = "%s.gff" % self.sample_name
@@ -783,20 +761,17 @@ class ISEscan_summary(base_luigi_task):
     SE_data = luigi.TupleParameter()
 
     def requires(self):
+        kwargs = self.get_kwargs()
         required_tasks = {"IS_scan": []}
         required_tasks["IS_scan"] += [ISEscan(R1=_R1,
                                               R2=_R2,
                                               sample_name=sn,
-                                              odir=self.odir,
-                                              dry_run=self.dry_run,
-                                              log_path=self.log_path
+                                              **kwargs
                                               ) for sn, _R1, _R2 in self.PE_data]
         required_tasks["IS_scan"] += [ISEscan(R1=_R1,
                                               R2='',
                                               sample_name=sn,
-                                              odir=self.odir,
-                                              dry_run=self.dry_run,
-                                              log_path=self.log_path) for sn, _R1 in self.SE_data]
+                                              **kwargs) for sn, _R1 in self.SE_data]
         return required_tasks
 
     def output(self):
@@ -817,7 +792,6 @@ class ISEscan_summary(base_luigi_task):
         for IS_gff, sample_name in zip(self.input()["IS_scan"],
                                        total_samples):
             if os.path.getsize(os.path.abspath(IS_gff.path)) == 0:
-
                 # it mean no IS could be detected.
                 continue
             gff_dict = get_gff(IS_gff.path,
@@ -843,7 +817,7 @@ class ISEscan_summary(base_luigi_task):
                                                                       region,
                                                                       json.dumps(other_info)]],
                                                                     columns=summary_df.columns,
-                                                                    index=[IS_id + '_'+ sample_name]))
+                                                                    index=[IS_id + '_' + sample_name]))
         summary_df.to_csv(self.output().path, index=0, sep='\t')
         if self.dry_run:
             for _o in [self.output()]:
@@ -863,7 +837,8 @@ class detect_plasmid(base_luigi_task):
                                               odir=self.odir,
                                               dry_run=self.dry_run,
                                               status='plasmid',
-                                              log_path=self.log_path
+                                              log_path=self.log_path,
+                                              thread=self.thread
                                               ) for sn, _R1, _R2 in self.PE_data]
 
         return required_tasks
@@ -904,7 +879,7 @@ class phigaro(ISEscan):
 
         run_phigaro(infile_pth,
                     ofile=self.output().path,
-                    thread=constant.p_phigaro,
+                    thread=self.thread - 1,
                     dry_run=self.dry_run,
                     log_file=self.get_log_path()
                     )
@@ -916,20 +891,17 @@ class phigaro(ISEscan):
 class phigaro_summary(ISEscan_summary):
     # regions specific annotated
     def requires(self):
+        kwargs = self.get_kwargs()
         required_tasks = {"phigaro": []}
         required_tasks["phigaro"] += [phigaro(R1=_R1,
                                               R2=_R2,
                                               sample_name=sn,
-                                              odir=self.odir,
-                                              dry_run=self.dry_run,
-                                              log_path=self.log_path
+                                              **kwargs
                                               ) for sn, _R1, _R2 in self.PE_data]
         required_tasks["phigaro"] += [phigaro(R1=_R1,
                                               R2='',
                                               sample_name=sn,
-                                              odir=self.odir,
-                                              dry_run=self.dry_run,
-                                              log_path=self.log_path) for sn, _R1 in self.SE_data]
+                                              **kwargs) for sn, _R1 in self.SE_data]
         return required_tasks
 
     def output(self):

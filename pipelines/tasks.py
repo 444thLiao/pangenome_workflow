@@ -7,7 +7,7 @@ from toolkit.get_version import *
 from toolkit.process_region_annotated import *
 from toolkit.utils import valid_path, write_pandas_df
 from .constant_str import *
-
+from soft_db_path import *
 
 def check_exe():
     # todo: use it to check the validation of application
@@ -324,7 +324,8 @@ def run_phigaro(infile,
     cmd = phigaro_cmd.format(exe_path=phigaro_path,
                              infile=infile,
                              ofile=ofile,
-                             thread=thread, )
+                             thread=thread,
+                             phigaro_config=phigaro_config)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 

@@ -12,7 +12,8 @@ __pycache__/
 # removes files
 temp-plot.html
 pipelines/test/
-pipelines/constant_str.py
+# pipelines/constant_str.py
+# pipelines/soft_db_path.py
 project_specific/
 
 # C extensions

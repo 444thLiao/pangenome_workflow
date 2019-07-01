@@ -117,7 +117,6 @@ def recovery(indir, name=None):
                                       constant.summary_dir))
     # for abricate
     cmd += rev_mv(source=os.path.join(in_directory,
-                                      "abricate_result",
                                       "locus2annotate.csv"),
                   target=os.path.join(indir,
                                       "abricate_result"),
@@ -161,7 +160,7 @@ class workflow(luigi.Task):
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter(default=False)
     log_path = luigi.Parameter(default=None)
-
+    thread = luigi.Parameter(default=constant.total_thread)
     def output(self):
         return luigi.LocalTarget(os.path.join(str(self.odir),
                                               "pipelines_summary"))
@@ -178,6 +177,7 @@ class workflow(luigi.Task):
         unify_kwargs = dict(odir=self.odir,
                             dry_run=self.dry_run,
                             log_path=self.log_path,
+                            thread=self.thread,
                             PE_data=pairreads, )
 
         require_tasks["fastqc_before"] = multiqc(status='before',
