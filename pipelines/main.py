@@ -78,7 +78,7 @@ def rev_mv(source, target, rm=True):
     if rm:
         cmd = "rm -r %s; " % target
         target = os.path.dirname(target)
-    cmd += "mv %s %s " % (source, target)
+    cmd += "mv %s %s ;" % (source, target)
     return cmd
 
 
@@ -140,7 +140,7 @@ def recovery(indir, name=None):
                                       "regular_quast"),
                   rm=False)
     print(cmd)
-    input_cmd = input(f"Are you sure to recovery this file from {name} \n it will delete a lot of some directory. such as `pipelines_summary`, `all_roary_o`, `summary_output`",
+    input_cmd = input(f"Are you sure to recovery this file from {in_directory} \n It will first delete a lot of some directory at {indir}. such as `pipelines_summary`, `all_roary_o`, `summary_output`",
                       )
 
     if str(input_cmd).lower() in ["y", "yes"]:
