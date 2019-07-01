@@ -2,7 +2,7 @@ import sys
 import time
 from os.path import dirname
 
-import click
+import click,re
 
 sys.path.insert(0, dirname(dirname(__file__)))
 from pipelines import *
@@ -36,7 +36,7 @@ def clean(indir):
 @click.option("-n", "--name", "name",
               help="Given a name for identify this archived files...")
 def archive(indir, odir, name=None):
-    "Just like the `clean` command, but it will archive these same result into a named directory."
+    # Just like the `clean` command, but it will archive required result into a named directory.
     if name is None:
         name = str(int(time.time()))
     output_directory = os.path.join(odir, "archived", name)
@@ -47,11 +47,11 @@ def archive(indir, odir, name=None):
     cmd += cmd_template.format(source=os.path.join(indir,
                                                    "pipelines_summary"),
                                target_dir=output_directory)
-    # for phigaro, seqtk, mlst, plasmid, IS,
+    # for roary
     cmd += cmd_template.format(source=os.path.join(indir,
                                                    "all_roary_o"),
                                target_dir=output_directory)
-    # roary
+    # for phigaro, seqtk, mlst, plasmid, IS,
     cmd += cmd_template.format(source=os.path.join(indir,
                                                    constant.summary_dir),
                                target_dir=output_directory)
@@ -60,8 +60,86 @@ def archive(indir, odir, name=None):
                                                    "abricate_result",
                                                    "locus2annotate.csv"),
                                target_dir=output_directory)
-    run_cmd(cmd,dry_run=False)
+    # for multiqc
+    cmd += cmd_template.format(source=os.path.join(indir,"fastqc_after","fastqc_after*"),
+                               target_dir=output_directory)
+    cmd += cmd_template.format(source=os.path.join(indir,"fastqc_before","fastqc_before*"),
+                               target_dir=output_directory)
+    cmd += cmd_template.format(source=os.path.join(indir,
+                                                   "assembly_o",
+                                                   "regular_quast",
+                                                   "regular_quast*"),
+                               target_dir=output_directory)
+    run_cmd(cmd, dry_run=False)
+
+
+def rev_mv(source,target,rm=True):
+    cmd = ''
+    if rm:
+        cmd = "rm -r %s; " % target
+    cmd += "mv %s %s " % (source,target)
+    return cmd
+
+@cli.command()
+@click.option("-i", "--input_dir", "indir",
+              help="output directory which passed to `run` command")
+@click.option("-n", "--name", "name",
+              help="Given a name for identify this archived files...")
+def recovery(indir, name=None):
+    # Just like the `recovery` command, but it will recovery archived files into it original directory.
+    # it will overwrite required files
+    if name is None:
+        name = [os.path.basename(_)
+                for _ in glob(os.path.join(indir, "archived","*"))
+                if re.match("[0-9]+", '1235656123')]
+        name = [_ for _ in name
+                if re.match("[0-9]+",_)[1] == len(_)]
+        name = str(max(name))
+
+    in_directory = os.path.join(indir, "archived", name)
+    cmd = ''
+    # for workflow
+    cmd += rev_mv(source=os.path.join(in_directory,
+                                      "pipelines_summary"),
+                  target=os.path.join(indir,))
+    # for roary
+    cmd += rev_mv(source=os.path.join(in_directory,
+                                      "all_roary_o"),
+                  target=os.path.join(indir,))
+    # for phigaro, seqtk, mlst, plasmid, IS,
+    cmd += rev_mv(source=os.path.join(in_directory,
+                                      constant.summary_dir),
+                  target=os.path.join(indir,))
+    # for abricate
+    cmd += rev_mv(source=os.path.join(in_directory,
+                                      "abricate_result",
+                                      "locus2annotate.csv"),
+                  target=os.path.join(indir,
+                                      "abricate_result"),
+                  rm=False)
+    # for multiqc
+    cmd += rev_mv(source=os.path.join(in_directory,
+                                      "fastqc_after*"),
+                  target=os.path.join(indir,
+                                      "fastqc_after"),
+                  rm=False)
+    cmd += rev_mv(source=os.path.join(in_directory,
+                                      "fastqc_before*"),
+                  target=os.path.join(indir,
+                                      "fastqc_before"),
+                  rm=False)
+    cmd += rev_mv(source=os.path.join(in_directory,
+                                      "regular_quast*",),
+                  target=os.path.join(indir,
+                                      "assembly_o",
+                                      "regular_quast"),
+                  rm=False)
     print(cmd)
+    input_cmd = input(f"Are you sure to recovery this file from {name} \n it will delete a lot of some directory. such as `pipelines_summary`, `all_roary_o`, `summary_output`",
+                     )
+
+    if str(input_cmd).lower() in ["y","yes"]:
+        run_cmd(cmd, dry_run=False)
 
 
 @cli.command(help="analysis with test dataset, need to assign a output directory.")
