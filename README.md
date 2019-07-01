@@ -11,18 +11,18 @@ Here we provide a `environment.yml` for easy create a environment with **anancon
 
 Here is a list of necessary software
 
-> * trimmomatic
-> * fastqc
-> * multiqc
-> * shovill
-> * prokka
-> * fasttree
-> * ISEscan
-> * abricate
-> * Spades
-> * mlst
-> * kraken2
-> * seqtk
+* trimmomatic
+* fastqc
+* multiqc
+* shovill
+* prokka
+* fasttree
+* ISEscan
+* abricate
+* Spades
+* mlst
+* kraken2
+* seqtk
 
 ## config
 After installing all these stuff, you must fulfill a `config` file which located at `pipelines/soft_db_path.py`.
