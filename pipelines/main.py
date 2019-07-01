@@ -2,7 +2,7 @@ import sys
 import time
 from os.path import dirname
 
-import click,re
+import click
 
 sys.path.insert(0, dirname(dirname(__file__)))
 from pipelines import *
@@ -61,9 +61,9 @@ def archive(indir, odir, name=None):
                                                    "locus2annotate.csv"),
                                target_dir=output_directory)
     # for multiqc
-    cmd += cmd_template.format(source=os.path.join(indir,"fastqc_after","fastqc_after*"),
+    cmd += cmd_template.format(source=os.path.join(indir, "fastqc_after", "fastqc_after*"),
                                target_dir=output_directory)
-    cmd += cmd_template.format(source=os.path.join(indir,"fastqc_before","fastqc_before*"),
+    cmd += cmd_template.format(source=os.path.join(indir, "fastqc_before", "fastqc_before*"),
                                target_dir=output_directory)
     cmd += cmd_template.format(source=os.path.join(indir,
                                                    "assembly_o",
@@ -73,12 +73,14 @@ def archive(indir, odir, name=None):
     run_cmd(cmd, dry_run=False)
 
 
-def rev_mv(source,target,rm=True):
+def rev_mv(source, target, rm=True):
     cmd = ''
     if rm:
         cmd = "rm -r %s; " % target
-    cmd += "mv %s %s " % (source,target)
+        target = os.path.dirname(target)
+    cmd += "mv %s %s " % (source, target)
     return cmd
+
 
 @cli.command()
 @click.option("-i", "--input_dir", "indir",
@@ -90,10 +92,10 @@ def recovery(indir, name=None):
     # it will overwrite required files
     if name is None:
         name = [os.path.basename(_)
-                for _ in glob(os.path.join(indir, "archived","*"))
-                if re.match("[0-9]+", '1235656123')]
+                for _ in glob(os.path.join(indir, "archived", "*"))
+                ]
         name = [_ for _ in name
-                if re.match("[0-9]+",_)[1] == len(_)]
+                if _.isnumeric()]
         name = str(max(name))
 
     in_directory = os.path.join(indir, "archived", name)
@@ -101,15 +103,18 @@ def recovery(indir, name=None):
     # for workflow
     cmd += rev_mv(source=os.path.join(in_directory,
                                       "pipelines_summary"),
-                  target=os.path.join(indir,))
+                  target=os.path.join(indir,
+                                      "pipelines_summary"))
     # for roary
     cmd += rev_mv(source=os.path.join(in_directory,
                                       "all_roary_o"),
-                  target=os.path.join(indir,))
+                  target=os.path.join(indir,
+                                      "all_roary_o"))
     # for phigaro, seqtk, mlst, plasmid, IS,
     cmd += rev_mv(source=os.path.join(in_directory,
                                       constant.summary_dir),
-                  target=os.path.join(indir,))
+                  target=os.path.join(indir,
+                                      constant.summary_dir))
     # for abricate
     cmd += rev_mv(source=os.path.join(in_directory,
                                       "abricate_result",
@@ -129,16 +134,16 @@ def recovery(indir, name=None):
                                       "fastqc_before"),
                   rm=False)
     cmd += rev_mv(source=os.path.join(in_directory,
-                                      "regular_quast*",),
+                                      "regular_quast*", ),
                   target=os.path.join(indir,
                                       "assembly_o",
                                       "regular_quast"),
                   rm=False)
     print(cmd)
     input_cmd = input(f"Are you sure to recovery this file from {name} \n it will delete a lot of some directory. such as `pipelines_summary`, `all_roary_o`, `summary_output`",
-                     )
+                      )
 
-    if str(input_cmd).lower() in ["y","yes"]:
+    if str(input_cmd).lower() in ["y", "yes"]:
         run_cmd(cmd, dry_run=False)
 
 
