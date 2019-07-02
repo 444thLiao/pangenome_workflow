@@ -26,3 +26,14 @@ def get_mlst_version(mlst_p):
                    dry_run=False)
     version = return_text.rstrip().split(' ')[1]
     return {'softwareMLSTversion': version}
+
+
+def get_global_soft(soft):
+    '''
+    Get the requested path of software
+    '''
+    return_text = run_cmd("which %s" % soft,
+                          get_output=True,
+                          dry_run=False)
+    return_text = return_text.strip('\n').strip()
+    return return_text

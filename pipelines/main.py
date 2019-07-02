@@ -73,15 +73,6 @@ def archive(indir, odir, name=None):
     run_cmd(cmd, dry_run=False)
 
 
-def rev_mv(source, target, rm=True):
-    cmd = ''
-    if rm:
-        cmd = "rm -r %s; " % target
-        target = os.path.dirname(target)
-    cmd += "mv %s %s ;" % (source, target)
-    return cmd
-
-
 @cli.command()
 @click.option("-i", "--input_dir", "indir",
               help="output directory which passed to `run` command")
@@ -90,6 +81,14 @@ def rev_mv(source, target, rm=True):
 def recovery(indir, name=None):
     # Just like the `recovery` command, but it will recovery archived files into it original directory.
     # it will overwrite required files
+    def rev_mv(source, target, rm=True):
+        cmd = ''
+        if rm:
+            cmd = "rm -r %s; " % target
+            target = os.path.dirname(target)
+        cmd += "mv %s %s ;" % (source, target)
+        return cmd
+
     if name is None:
         name = [os.path.basename(_)
                 for _ in glob(os.path.join(indir, "archived", "*"))
@@ -141,7 +140,7 @@ def recovery(indir, name=None):
     print(cmd)
     input_cmd = input(
         f"Are you sure to recovery this file from {in_directory} \n It will first delete a lot of some directory at {indir}. such as `pipelines_summary`, `all_roary_o`, `summary_output`",
-        )
+    )
 
     if str(input_cmd).lower() in ["y", "yes"]:
         run_cmd(cmd, dry_run=False)
@@ -154,6 +153,19 @@ def testdata(odir):
     run_cmd(
         f"python3 {project_root_path}/pipelines/main.py run -- workflow --tab {project_root_path}/pipelines/test/test_input.tab --odir {odir} --workers 2 --log-path {odir}/cmd_log.txt",
         dry_run=False)
+
+
+@cli.command(help="test the dependency of required softwares. ")
+def testsoft():
+    required_soft = {"fastqc", "multiqc", "shovill", "prokka", "roary", "quast", "pandoo", "fasttree", "ISEscan", "abricate", "phigaro",
+                     "mlst", "kraken2", "seqtk"}
+    import soft_db_path as ori_path
+    for s in required_soft:
+        path_exist = eval("os.path.exists(ori_path.%s_path)" % s)
+        if path_exist:
+                print("\033[1;32;40m {:<10}: software exists".format(s))
+        else:
+            print("\033[1;31;40m {:<10}: no requested files".format(s))
 
 
 class workflow(luigi.Task):
