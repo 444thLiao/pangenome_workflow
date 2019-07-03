@@ -59,7 +59,7 @@ def write_new_gff(unify_regions_pth,
     # and add regions base annotation into it
     # return a list of data
     # it will drop empty region annotated samples.
-    unify_regions = pd.read_csv(unify_regions_pth, sep='\t', index_col=None, dtype=str)
+    unify_regions = pd.read_csv(unify_regions_pth, sep='\t', index_col=0, dtype=str)
     new_sample2gff = copy.deepcopy(sample2gff)
 
     for region_ID, vals in unify_regions.iterrows():
