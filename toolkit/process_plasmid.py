@@ -54,11 +54,10 @@ def align_plasmid(indir):
                                           int(row.split('\t')[3]) - 1,  # convert 0-coord
                                           int(row.split('\t')[3]) - 1 + len(row.split('\t')[9]))
                             for row in validated_row_of_sam]
-            aligned_info[sample_name] = list(zip(match_region,
+            zipped_list = list(zip(match_region,
                                                  matched_plasmid_belong))
-            for r,n in list(aligned_info.keys()):
-                if r.startswith('*:'):
-                    aligned_info.pop(r)
+            zipped_list = [(r,name) for r,name in zipped_list if not r.startswith("*:")]
+            aligned_info[sample_name] = zipped_list
     return aligned_info
 
 
