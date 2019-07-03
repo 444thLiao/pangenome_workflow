@@ -817,7 +817,7 @@ class ISEscan_summary(base_luigi_task):
                                                                       json.dumps(other_info)]],
                                                                     columns=summary_df.columns,
                                                                     index=[IS_id + '_' + sample_name]))
-        summary_df.to_csv(self.output().path, index=0, sep='\t')
+        summary_df.to_csv(self.output().path, index=1, sep='\t')
         if self.dry_run:
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)

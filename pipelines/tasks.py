@@ -7,7 +7,7 @@ from toolkit.get_version import *
 from toolkit.process_region_annotated import *
 from toolkit.utils import valid_path, write_pandas_df
 from .constant_str import *
-from soft_db_path import *
+from .soft_db_path import *
 
 def check_exe():
     # todo: use it to check the validation of application
@@ -391,7 +391,10 @@ def run_seqtk_contig(infile, outfile, isolate,
     metrics[pfx + 'avg'] = bps / len(contig_lengths)
     metrics[pfx + 'Max'] = max(contig_lengths)
     metrics[pfx + 'Min'] = min(contig_lengths)
+    metrics[pfx + 'lt1K'] = len([_ for _ in contig_lengths if _ > 1000])
+    metrics[pfx + 'lt5K'] = len([_ for _ in contig_lengths if _ > 5000])
     metrics[pfx + 'ok'] = bps - nns
+
     metrics['sotwareSeqTKversion_comp'] = seqtk_version()
     seqtk_comp_df = pd.DataFrame.from_dict({isolate: metrics},
                                            orient='index')
