@@ -1,8 +1,6 @@
-name: pangenome_pipelines
+name: pangenome_workflow
 channels:
-  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/bioconda
-  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
-  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free
+  - https://repo.continuum.io/pkgs/free
   - bioconda
   - conda-forge
   - defaults
@@ -10,32 +8,47 @@ channels:
   - https://repo.continuum.io/pkgs/free/linux-64/
   - https://repo.continuum.io/pkgs/main/linux-64
 dependencies:
+  - _libgcc_mutex=0.1=main
+  - abricate=0.8=pl526ha92aebf_1
   - aragorn=1.2.38=h470a237_2
   - barrnap=0.8=1
+  - bedtools=2.26.0=0
+  - blas=1.0=mkl
   - blast=2.6.0=boost1.60_0
   - boost=1.60.0=py36_0
   - bwa=0.7.17=h84994c4_5
   - bzip2=1.0.6=h14c3975_1002
-  - ca-certificates=2019.3.9=hecc5488_0
+  - ca-certificates=2019.6.16=hecc5488_0
   - cairo=1.16.0=ha4e643d_1000
-  - certifi=2019.3.9=py36_0
+  - cd-hit=4.8.1=hdbcaa40_2
+  - certifi=2019.6.16=py36_0
+  - circos=0.69.6=5
   - clustalw=2.1=h6bb024c_4
   - curl=7.64.1=hf8cf82a_0
+  - emboss=6.6.0=h6debe1e_0
+  - entrez-direct=11.0=pl526_0
   - expat=2.2.5=hf484d3e_1002
+  - fastqc=0.11.8=1
+  - fasttree=2.1.10=h14c3975_3
   - flash=1.2.11=h84994c4_3
+  - font-ttf-dejavu-sans-mono=2.37=h6964260_0
   - fontconfig=2.13.1=he4413a7_1000
   - freetype=2.10.0=he983fc9_0
   - fribidi=1.0.5=h14c3975_1000
   - gettext=0.19.8.1=hc5be6a0_1002
   - giflib=5.1.9=h516909a_0
   - glib=2.58.3=hf63aee3_1001
+  - glimmerhmm=3.0.4=pl526hf484d3e_3
   - graphite2=1.3.13=hf484d3e_1000
   - graphviz=2.40.1=h0dab3d1_0
   - harfbuzz=2.4.0=h37c48d4_0
   - hmmer=3.2.1=hf484d3e_1
   - icu=58.2=hf484d3e_1000
   - infernal=1.1.2=h14c3975_2
+  - intel-openmp=2019.4=243
+  - joblib=0.13.2=py_0
   - jpeg=9c=h14c3975_1001
+  - kiwisolver=1.1.0=py36hc9558a2_0
   - kmc=3.1.1rc1=h76f5088_2
   - krb5=1.16.3=h05b26f9_1001
   - libcurl=7.64.1=hda55be3_0
@@ -46,6 +59,7 @@ dependencies:
   - libgcc=7.2.0=h69d50b8_2
   - libgcc-ng=8.2.0=hdf63c60_1
   - libgd=2.2.5=h0d07dcb_1005
+  - libgfortran-ng=7.3.0=hdf63c60_0
   - libiconv=1.15=h516909a_1005
   - libidn=7.45.0=2
   - libpng=1.6.37=hed695b0_0
@@ -59,10 +73,20 @@ dependencies:
   - libxml2=2.9.9=h13577e0_0
   - libxslt=1.1.32=h4785a14_1002
   - lighter=1.1.2=he860b03_1
+  - llvm-openmp=8.0.0=hc9558a2_0
   - lz4-c=1.8.3=he1b5a44_1001
+  - mafft=7.407=hf484d3e_2
+  - matplotlib-base=3.1.1=py36hfd891ef_0
+  - mcl=14.137=pl526h470a237_4
   - minced=0.4.0=0
+  - mkl=2019.4=243
+  - mkl_fft=1.0.13=py36h516909a_1
+  - mkl_random=1.0.4=py36hf2d7682_0
+  - mlst=2.11=0
   - ncurses=6.1=hf484d3e_1002
+  - numpy-base=1.16.4=py36hde5b4d6_0
   - openjdk=11.0.1=h516909a_1016
+  - openmp=8.0.0=0
   - openssl=1.1.1b=h14c3975_1
   - paml=4.9=h14c3975_4
   - pango=1.40.14=h4ea9474_1004
@@ -76,6 +100,7 @@ dependencies:
   - perl-app-cpanminus=1.7044=pl526_1
   - perl-appconfig=1.71=pl526_1
   - perl-array-compare=3.0.1=pl526_1
+  - perl-array-utils=0.5=pl526_2
   - perl-autoloader=5.74=pl526_2
   - perl-base=2.23=pl526_1
   - perl-bio-asn1-entrezgene=1.73=pl526_0
@@ -103,6 +128,7 @@ dependencies:
   - perl-clone=0.41=pl526h14c3975_1
   - perl-common-sense=3.74=pl526_2
   - perl-compress-raw-zlib=2.086=pl526h6bb024c_1
+  - perl-config-general=2.63=pl526_0
   - perl-constant=1.33=pl526_1
   - perl-convert-binary-c=0.78=pl526h6bb024c_3
   - perl-convert-binhex=1.125=pl526_1
@@ -119,6 +145,7 @@ dependencies:
   - perl-devel-stacktrace=2.03=pl526_1
   - perl-digest-hmac=1.03=pl526_3
   - perl-digest-md5=2.55=pl526_0
+  - perl-digest-md5-file=0.08=pl526_2
   - perl-digest-perl-md5=1.9=pl526_1
   - perl-digest-sha1=2.13=pl526h6bb024c_1
   - perl-dist-checkconflicts=0.11=pl526_2
@@ -132,9 +159,13 @@ dependencies:
   - perl-exporter=5.72=pl526_1
   - perl-exporter-tiny=1.002001=pl526_0
   - perl-extutils-makemaker=7.36=pl526_1
+  - perl-file-find-rule=0.34=pl526_5
+  - perl-file-grep=0.02=pl526_3
   - perl-file-listing=6.04=pl526_1
   - perl-file-path=2.16=pl526_0
+  - perl-file-slurp=9999.27=pl526_0
   - perl-file-slurp-tiny=0.004=pl526_1
+  - perl-file-slurper=0.012=pl526_0
   - perl-file-sort=1.01=pl526_2
   - perl-file-spec=3.48_01=pl526_1
   - perl-file-temp=0.2304=pl526_2
@@ -145,6 +176,7 @@ dependencies:
   - perl-gd=2.70=pl526he860b03_1
   - perl-getopt-long=2.50=pl526_1
   - perl-graph=0.9704=pl526_1
+  - perl-graph-readwrite=2.09=pl526_2
   - perl-graphviz=2.24=pl526h734ff71_0
   - perl-html-element-extended=1.18=pl526_1
   - perl-html-entities-numbered=0.04=pl526_1
@@ -178,14 +210,18 @@ dependencies:
   - perl-libxml-perl=0.08=pl526_2
   - perl-list-moreutils=0.428=pl526_1
   - perl-list-moreutils-xs=0.428=pl526_0
+  - perl-log-log4perl=1.49=pl526_0
   - perl-lwp-mediatypes=6.04=pl526_0
   - perl-lwp-protocol-https=6.07=pl526_4
   - perl-lwp-simple=6.15=pl526h470a237_4
   - perl-mailtools=2.20=pl526_0
+  - perl-math-bezier=0.01=pl526_1
   - perl-math-cdf=0.1=pl526h14c3975_5
   - perl-math-derivative=1.01=pl526_0
   - perl-math-random=0.72=pl526h14c3975_2
+  - perl-math-round=0.07=pl526_1
   - perl-math-spline=0.02=pl526_2
+  - perl-math-vecstat=0.08=pl526_1
   - perl-mime-base64=3.15=pl526_1
   - perl-mime-lite=3.030=pl526_1
   - perl-mime-tools=5.508=pl526_1
@@ -201,26 +237,35 @@ dependencies:
   - perl-net-http=6.18=pl526_0
   - perl-net-ssleay=1.88=pl526h90d6eec_0
   - perl-ntlm=1.09=pl526_4
+  - perl-number-compare=0.03=pl526_2
+  - perl-number-format=1.75=pl526_3
   - perl-ole-storage_lite=0.19=pl526_3
   - perl-package-deprecationmanager=0.17=pl526_0
   - perl-package-stash=0.38=pl526hf484d3e_1
   - perl-package-stash-xs=0.28=pl526hf484d3e_1
   - perl-params-util=1.07=pl526h6bb024c_4
+  - perl-params-validate=1.29=pl526h14c3975_1
   - perl-parent=0.236=pl526_1
   - perl-parse-recdescent=1.967015=pl526_0
+  - perl-parse-yapp=1.21=pl526_0
   - perl-pathtools=3.75=pl526h14c3975_1
   - perl-pdf-api2=2.033=pl526_0
+  - perl-perlio-utf8_strict=0.007=pl526h6bb024c_1
   - perl-pod-escapes=1.07=pl526_1
   - perl-pod-usage=1.69=pl526_1
   - perl-postscript=0.06=pl526_2
+  - perl-readonly=2.05=pl526_0
+  - perl-regexp-common=2017060201=pl526_0
   - perl-role-tiny=2.000006=pl526_0
   - perl-scalar-list-utils=1.45=pl526h470a237_3
+  - perl-set-intspan=1.19=pl526_1
   - perl-set-scalar=1.29=pl526_2
   - perl-soap-lite=1.19=pl526_1
   - perl-socket=2.027=pl526_1
   - perl-sort-naturally=1.03=pl526_2
   - perl-spreadsheet-parseexcel=0.65=pl526_2
   - perl-spreadsheet-writeexcel=2.40=pl526_2
+  - perl-statistics-basic=1.6611=pl526_2
   - perl-statistics-descriptive=3.0702=pl526_0
   - perl-storable=3.15=pl526h14c3975_0
   - perl-sub-exporter=0.987=pl526_2
@@ -243,7 +288,10 @@ dependencies:
   - perl-test-most=0.35=pl526_0
   - perl-test-requiresinternet=0.05=pl526_0
   - perl-test-warn=0.36=pl526_1
+  - perl-text-csv=2.00=pl526_0
   - perl-text-diff=1.45=pl526_0
+  - perl-text-format=0.59=pl526_2
+  - perl-text-glob=0.11=pl526_1
   - perl-threaded=5.26.0=0
   - perl-tie-ixhash=1.23=pl526_2
   - perl-time-hires=1.9760=pl526h14c3975_1
@@ -280,15 +328,23 @@ dependencies:
   - pilon=1.23=0
   - pip=19.1=py36_0
   - pixman=0.34.0=h14c3975_1003
+  - prank=v.170427=h6bb024c_2
   - prodigal=2.6.3=1
   - prokka=1.11=0
   - pthread-stubs=0.4=h14c3975_1001
+  - pyparsing=2.4.0=py_0
+  - pyqt=4.11.4=py36_3
   - python=3.6.7=h381d211_1004
+  - python-dateutil=2.8.0=py_0
+  - qt=4.8.7=2
+  - quast=5.0.2=py36pl526ha92aebf_0
   - readline=7.0=hf8c457e_1001
+  - roary=3.12.0=pl526h470a237_1
   - samtools=1.7=1
   - seqtk=1.3=h84994c4_1
   - setuptools=41.0.1=py36_0
   - shovill=0.9.0=1
+  - sip=4.18=py36_0
   - spades=3.13.0=0
   - sqlite=3.26.0=h67949de_1001
   - system=5.8=2
@@ -318,8 +374,11 @@ dependencies:
   - pip:
     - argcomplete==1.10.0
     - argh==0.26.2
+    - argparse==1.4.0
     - bcbio-gff==0.6.6
+    - beautifulsoup4==4.7.1
     - biopython==1.73
+    - chardet==3.0.4
     - click==7.0
     - colormath==3.0.0
     - cycler==0.10.0
@@ -331,8 +390,9 @@ dependencies:
     - gffutils==0.9
     - idna==2.8
     - jinja2==2.10.1
-    - kiwisolver==1.1.0
+    - lockfile==0.12.2
     - luigi==2.8.5
+    - lxml==4.3.4
     - lzstring==1.0.4
     - markdown==3.1
     - markupsafe==1.1.1
@@ -340,24 +400,26 @@ dependencies:
     - multiqc==1.7
     - networkx==2.3
     - numpy==1.16.3
+    - pandas==0.24.2
     - pandoo==0.2.13
+    - phigaro==0.2.1.8
+    - plotly==4.0.0a8
     - psutil==5.6.2
     - pyfaidx==0.5.5.2
-    - pyparsing==2.4.0
     - pysam==0.15.2
     - python-daemon==2.1.2
-    - python-dateutil==2.8.0
     - pytz==2019.1
     - pyvcf==0.6.8
     - pyyaml==5.1
     - requests==2.21.0
     - ruffus==2.6.2
     - scipy==1.2.1
+    - sh==1.12.14
     - simplejson==3.16.0
     - six==1.12.0
+    - soupsieve==1.9.2
     - spectra==0.0.11
     - tornado==4.5.3
     - tqdm==4.31.1
     - urllib3==1.24.3
-prefix: /home/liaoth/tools/anaconda3/envs/pangenome_pipelines
 

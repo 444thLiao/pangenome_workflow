@@ -156,7 +156,8 @@ def testdata(odir):
 
 
 @cli.command(help="test the dependency of required softwares. ")
-def testsoft():
+@click.option("-u", "--update", help="updated the soft_db_path.py or not ")
+def check(update):
     required_soft = {"fastqc", "multiqc", "shovill", "prokka", "roary", "quast", "pandoo", "fasttree", "ISEscan", "abricate", "phigaro",
                      "mlst", "kraken2", "seqtk"}
     import soft_db_path as ori_path

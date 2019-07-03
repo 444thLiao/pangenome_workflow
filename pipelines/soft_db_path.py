@@ -1,3 +1,5 @@
+from os.path import dirname
+project_root = dirname(dirname(__file__))
 ############################################################
 # exe path
 ############################################################
@@ -18,8 +20,8 @@ fasttree_path = "/usr/bin/fasttreeMP"
 
 ISEscan_path = "/tools/ISEScan/isescan.py"
 abricate_path = "/tools/abricate/bin/abricate"
-abricate_py_path = "/home/liaoth/tools/genome_pipelines/toolkit/batch_abricate.py"
-plasmid_detect_path = "/home/liaoth/tools/genome_pipelines/toolkit/process_plasmid.py"
+abricate_py_path = "%s/toolkit/batch_abricate.py" % project_root
+plasmid_detect_path = "%s/toolkit/process_plasmid.py" % project_root
 
 phigaro_path = "/tools/anaconda3/envs/pangenome_pipelines/bin/phigaro"
 gubbins_path = "/tools/anaconda3/envs/pangenome_pipelines/bin/run_gubbins.py"

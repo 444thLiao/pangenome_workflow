@@ -11,18 +11,23 @@ Here we provide a `environment.yml` for easy create a environment with **anancon
 
 Here is a list of necessary software
 
-* trimmomatic
-* fastqc
-* multiqc
-* shovill
-* prokka
-* fasttree
-* ISEscan
-* abricate
-* Spades
-* mlst
-* kraken2
-* seqtk
+* [trimmomatic](http://www.usadellab.org/cms/index.php?page=trimmomatic)
+* [fastqc](https://github.com/s-andrews/FastQC)
+* [multiqc](https://github.com/ewels/MultiQC)
+* [shovill](https://github.com/tseemann/shovill)
+* [prokka](https://github.com/tseemann/prokka#installation)
+* [fasttree](http://www.microbesonline.org/fasttree/)
+* [ISEscan](https://github.com/xiezhq/ISEScan)
+* [abricate](https://github.com/tseemann/abricate)
+* [Spades](http://cab.spbu.ru/software/spades/)
+* [mlst](https://github.com/tseemann/mlst)
+* [kraken2](https://github.com/DerrickWood/kraken2)
+* [seqtk](https://github.com/lh3/seqtk)
+* [phigaro](https://github.com/444thLiao/phigaro)
+
+> Especially need to be noticed, phigaro should install the forked version of mine. Or it will **hang up** waiting for your input instead of run it thought.
+
+Most of them which had published to conda repository had been add to `environmen.yml`. But **ISEscan**, **quast** abd **phigaro** need user to installed yourself and its dependency. And database of **abricate** and **kraken2** also need to downlaod.
 
 ## config
 After installing all these stuff, you must fulfill a `config` file which located at `pipelines/soft_db_path.py`.
@@ -67,6 +72,9 @@ Inside this `data_input.tab`, you could append more columns besides the necessar
 Besides that, if you don't know which `ref` or which `gff` you need to choose, you could just left blank and it will bypass this step.
 
 It just for quality accessment for now.
+
+## Q&A
+
 
 ## Feedback
 

@@ -56,7 +56,9 @@ def align_plasmid(indir):
                             for row in validated_row_of_sam]
             aligned_info[sample_name] = list(zip(match_region,
                                                  matched_plasmid_belong))
-
+            for r,n in list(aligned_info.keys()):
+                if r.startswith('*:'):
+                    aligned_info.pop(r)
     return aligned_info
 
 
@@ -71,8 +73,9 @@ def main(indir, ofile):
     for sample_name, infos in aligned_plasmid_info.items():
         count = 0
         for region, plasmid_id in infos:
-            formatted_ID = 'plasmid%s_piece%s' % (str(plasmid_id),
-                                                  str(count))
+            formatted_ID = '%s_plasmid%s_piece%s' % (sample_name,
+                                                     str(plasmid_id),
+                                                     str(count))
             summary_df = summary_df.append(pd.DataFrame([[sample_name,
                                                           region,
                                                           ''
