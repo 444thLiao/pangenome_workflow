@@ -25,7 +25,7 @@ Here is a list of necessary software
 * [seqtk](https://github.com/lh3/seqtk)
 * [phigaro](https://github.com/444thLiao/phigaro)
 
-> Especially need to be noticed, phigaro should install the forked version of mine. Or it will **hang up** waiting for your input instead of run it thought.
+> Especially need to be noticed, phigaro should install the forked version mentioned above. Or it will **hang up** to waiting for your input instead of run it thought. This is a defect of it original version.
 
 Most of them which had published to conda repository had been add to `environmen.yml`. But **ISEscan**, **quast** abd **phigaro** need user to installed yourself and its dependency. And database of **abricate** and **kraken2** also need to downlaod.
 
@@ -58,23 +58,31 @@ Here describe a little bit about these params. For more detailed, you should che
 * `--analysis-type`: for now, three options including *otu, deblur, dada2* could be selected, if you want to perform all at once. You could pass `all` param to it. Because there are a lot of overlapped tasks among three different pipelines, it would save a lot of time than running these separately with different `odir`. 
 * `--log-path`: it just record the cmd history.*(optional)*
 * `--workers`: it could control how many tasks could be parallel.
-
+* `--thread`: it could control how many thread could be used at each task.
 
 
 ## about the `data_input.tab`
 
-If you look at the `toolkit/data_input.template`, there are only three header. 
+Please following the template file `toolkit/data_input.template`, new **data_input.tab** should contains all its header. 
 
-`Tab` is taken as separator of this `data_input.tab` for better handle some weird filename.
+`\t` is taken as separator of this `data_input.tab` for better handle some weird filename.
 
 Inside this `data_input.tab`, you could append more columns besides the necessary `five columns(sample ID	R1	R2  ref gff)`. This pipelines only check you have these three instead of only have these five.
 
-Besides that, if you don't know which `ref` or which `gff` you need to choose, you could just left blank and it will bypass this step.
+Besides that, if you don't know which `ref` or which `gff` you need to choose, you could just left blank and it will pass `quast` step.
 
-It just for quality accessment for now.
+These columns only used to perform quality assessment for now.
 
 ## Q&A
 
+Although I have try real data for test, but different kinds of input is unpredictable. Here provide some of the problems may occurs and its solution.
+
+1. Why my workflow stop and hang up such a lot time and doesn't consume any CPU resource?
+    > I think it is the problem I mention it above. Inside the original version of phigaro, it will ask the user to input yes or no to continue. If you using the original version of phigaro, please change it to forked version of mine. https://github.com/444thLiao/phigaro . If you want to know what i have change, you could see the file under the phigaro project (`phigaro/batch/task/preprocess.py`)
+2. How could I change the parameter of one of the task?
+    > For now, it may be difficult to change it easily. You may need to go inside the project and find the file `pipelines/constant_str.py`. You could change the command line template for meet you requirement, but you need to be careful these `{}` and not to change them. 
+2. Could I add more tasks?
+    > Yes, of course you could manually reconstruct and add/delete more tasks. But first you should look carefully at `pipelines/pangenome_pipelines.py`. All sub tasks of luigi were put here, you should process the dependency of them.
 
 ## Feedback
 

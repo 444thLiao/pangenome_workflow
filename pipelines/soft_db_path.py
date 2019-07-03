@@ -29,7 +29,7 @@ gubbins_path = "/tools/anaconda3/envs/pangenome_pipelines/bin/run_gubbins.py"
 mlst_path = '/tools/mlst/bin/mlst'
 kraken2_path = '/tools/kraken2/kraken2'
 seqtk_path = '/usr/bin/seqtk'
-
+roary_plot_path = "/tools/Roary/contrib/roary_plots/roary_plots.py"
 ############################################################
 # database path
 ############################################################
