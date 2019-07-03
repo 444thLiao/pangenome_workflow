@@ -54,9 +54,8 @@ Besides the params `--tab`, `--odir`, `--analysis-type`, `--log-path`, other par
 Here describe a little bit about these params. For more detailed, you should check the documentation of luigi at [luigi doc](https://luigi.readthedocs.io/en/stable/)
 
 * `--tab`: given a path(could be relative/absolute) of `input_data.tab`
-* `--odir`: jus the path of output directory. a little be need to say is that, different pipelines like `otu, deblur, dada2`, it will separately located the final output of different pipelines. So **don't worry using same output dir will confuse the result**.
-* `--analysis-type`: for now, three options including *otu, deblur, dada2* could be selected, if you want to perform all at once. You could pass `all` param to it. Because there are a lot of overlapped tasks among three different pipelines, it would save a lot of time than running these separately with different `odir`. 
-* `--log-path`: it just record the cmd history.*(optional)*
+* `--odir`: jus the path of output directory.
+* `--log-path`: it will record the cmd history.*(optional)*
 * `--workers`: it could control how many tasks could be parallel.
 * `--thread`: it could control how many thread could be used at each task.
 

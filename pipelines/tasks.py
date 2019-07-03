@@ -9,6 +9,7 @@ from toolkit.utils import valid_path, write_pandas_df
 from .constant_str import *
 from .soft_db_path import *
 
+
 def check_exe():
     # todo: use it to check the validation of application
     def check_exists(exe_file):
@@ -707,10 +708,11 @@ def post_analysis(workflow_task):
                             summary_odir))
     ############################################################
     # roary plot
-    cmdline = "{roary_plot} {core_gene_tree} {ab_csv}".format(roary_plot=roary_plot_path,
-                                                              core_gene_tree=core_gene_tree,
-                                                              ab_csv=os.path.join(roary_dir,
-                                                                                  "gene_presence_absence.csv"))
+    cmdline = "cd {roarydir}; {roary_plot} {core_gene_tree} {ab_csv}".format(roarydir=roary_dir,
+                                                                             roary_plot=roary_plot_path,
+                                                                             core_gene_tree=core_gene_tree,
+                                                                             ab_csv=os.path.join(roary_dir,
+                                                                                                 "gene_presence_absence.csv"))
     run_cmd(cmdline,
             dry_run=workflow_task.dry_run,
             log_file=workflow_task.log_path)
