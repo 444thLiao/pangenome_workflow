@@ -206,8 +206,8 @@ class workflow(luigi.Task):
                                                 )
         require_tasks["abricate"] = abricate(SE_data=singlereads,
                                              **unify_kwargs)
-        # require_tasks["fasttree"] = fasttree(SE_data=singlereads,
-        #                                      **unify_kwargs)
+        require_tasks["fasttree"] = pre_roary(SE_data=singlereads,
+                                             **unify_kwargs)
         require_tasks["seqtk"] = seqtk_summary(SE_data=singlereads,
                                                **unify_kwargs)
         require_tasks["species_annotated"] = species_annotated_summary(SE_data=singlereads,

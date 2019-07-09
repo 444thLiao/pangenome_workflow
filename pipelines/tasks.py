@@ -168,16 +168,21 @@ def run_prokka(infile, odir,
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
 
-def run_roary(indir, odir,
+def run_roary(indir,  # indir/ infiles
+              odir,
               thread=0,
               dry_run=False,
               log_file=None):
-    if glob(os.path.join(indir, '*.gff')):
-        gff_pattern = os.path.join(indir, '*.gff')
+    if type(indir) == str:
+        if glob(os.path.join(indir, '*.gff')):
+            gff_pattern = os.path.join(indir, '*.gff')
+        else:
+            gff_pattern = os.path.join(indir, '*', '*.gff')
+        if not dry_run:
+            valid_path(gff_pattern, check_glob=True)
     else:
-        gff_pattern = os.path.join(indir, '*', '*.gff')
-    if not dry_run:
-        valid_path(gff_pattern, check_glob=True)
+        gff_pattern = ' '.join(indir)
+
     valid_path(os.path.dirname(odir), check_odir=True)
     # roary would not overwrite existing directory... so we don't create it directly, we just check the parent directory.
     cmd = roary_cmd.format(exe_path=roary_path,

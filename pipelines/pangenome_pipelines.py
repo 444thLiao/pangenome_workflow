@@ -418,8 +418,17 @@ class roary(base_luigi_task):
 
     def run(self):
         valid_path(self.output()[0].path, check_ofile=1)
+        prokka_dir = os.path.join(self.odir, 'prokka_o')
+        gff_files = glob(prokka_dir, '*', '*.gff')
 
-        run_roary(os.path.dirname(os.path.dirname(self.input()[0].path)),
+        if self.name != 'all':
+            processed_sid = [sn for sn, _R1, _R2 in self.PE_data] + \
+                            [sn for sn, _R1 in self.SE_data]
+            gff_files = [_
+                         for _ in gff_files
+                         if os.path.basename(os.path.dirname(_)) in processed_sid]
+
+        run_roary(gff_files,
                   os.path.dirname(self.output()[0].path),
                   thread=self.thread - 1,  # todo: determine the thread
                   dry_run=self.dry_run,
@@ -566,6 +575,7 @@ class abricate(base_luigi_task):
         require_tasks = []
         require_tasks.append(roary(PE_data=self.PE_data,
                                    SE_data=self.SE_data,
+                                   name='all',
                                    **kwargs))
         require_tasks += [prokka(R1=_R1,
                                  R2=_R2,
@@ -779,10 +789,10 @@ class species_annotated_summary(base_luigi_task):
 
     def requires(self):
         kwargs = self.get_kwargs()
-        kwargs["PE_data"] = self.PE_data
-        kwargs["SE_data"] = self.SE_data
         required_tasks = []
-        required_tasks += [kraken2_summary(**kwargs)]
+        required_tasks += [kraken2_summary(PE_data=self.PE_data,
+                                           SE_data=self.SE_data,
+                                           **kwargs)]
         required_tasks += [mash_tasks(R1=_R1,
                                       R2=_R2,
                                       sample_name=sn,
