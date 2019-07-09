@@ -9,7 +9,7 @@ import pandas as pd
 from BCBio import GFF
 from Bio import SeqIO
 from tqdm import tqdm
-
+from pandas.errors import EmptyDataError
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from toolkit.utils import get_locus2group, run_cmd, valid_path
 from toolkit.get_gene_info import get_gff, add_fea2gff
@@ -47,6 +47,10 @@ def run_abricate(prokka_dir,
                 run_cmd(new_cmd,
                         dry_run=dry_run,
                         log_file=log_file)
+            else:
+                run_cmd("# %s has been analysised " % ofile,
+                        dry_run=dry_run,
+                        log_file=log_file)
             ############################################################
         samples2locus[sample_name] = [_.id for _ in SeqIO.parse(ffn_pth, format='fasta')]
     return samples2locus
@@ -73,7 +77,10 @@ def summary_abricate(odir):
     for tab in tqdm(glob(os.path.join(odir,
                                       '*',
                                       "abricate_*.tab"))):
-        df = pd.read_csv(tab, sep='\t')
+        try:
+            df = pd.read_csv(tab, sep='\t')
+        except EmptyDataError:
+            continue
         seq_id = list(df.loc[:, "SEQUENCE"])
         genes = [gene_process(_) for _ in df.loc[:, 'GENE']]
         db = os.path.basename(tab).split('_')[1].split('.')[0]

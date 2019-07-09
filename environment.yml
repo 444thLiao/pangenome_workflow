@@ -9,7 +9,7 @@ channels:
   - https://repo.continuum.io/pkgs/main/linux-64
 dependencies:
   - _libgcc_mutex=0.1=main
-  - abricate=0.8=pl526ha92aebf_1
+  - abricate>=0.8.13
   - aragorn=1.2.38=h470a237_2
   - barrnap=0.8=1
   - bedtools=2.26.0=0

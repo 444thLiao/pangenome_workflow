@@ -789,19 +789,20 @@ class species_annotated_summary(base_luigi_task):
 
     def requires(self):
         kwargs = self.get_kwargs()
-        required_tasks = []
-        required_tasks += [kraken2_summary(PE_data=self.PE_data,
-                                           SE_data=self.SE_data,
-                                           **kwargs)]
-        required_tasks += [mash_tasks(R1=_R1,
-                                      R2=_R2,
-                                      sample_name=sn,
-                                      **kwargs)
-                           for sn, _R1, _R2 in self.PE_data]
-        required_tasks += [mash_tasks(R1=_R1,
-                                      sample_name=sn,
-                                      **kwargs)
-                           for sn, _R1 in self.SE_data]
+        required_tasks = {}
+        required_tasks["k2_summary"] = kraken2_summary(PE_data=self.PE_data,
+                                                       SE_data=self.SE_data,
+                                                       **kwargs)
+        required_tasks["mash"] = []
+        required_tasks["mash"] += [mash_tasks(R1=_R1,
+                                              R2=_R2,
+                                              sample_name=sn,
+                                              **kwargs)
+                                   for sn, _R1, _R2 in self.PE_data]
+        required_tasks["mash"] += [mash_tasks(R1=_R1,
+                                              sample_name=sn,
+                                              **kwargs)
+                                   for sn, _R1 in self.SE_data]
         return required_tasks
 
     def output(self):
@@ -817,11 +818,15 @@ class species_annotated_summary(base_luigi_task):
                         dry_run=False)
         else:
             from toolkit.process_mash import parse_batch_result
-            kraken2_summary_path = self.input()[0].path
+            kraken2_summary_path = self.input()['k2_summary'].path
             kraken2_df = pd.read_csv(kraken2_summary_path, index_col=1)
 
-            mash_paths = [_.path for _ in self.input()
-                          if _.path.endswith(".mash_report")]
+            mash_paths = [otarget.path
+                          for req_task in self.input()["mash"]
+                          # get tasks which is mash_tasks
+                          for otarget in req_task
+                          # get tasks.output which is mash_tasks.output
+                          if otarget.path.endswith(".mash_report")]
             mash_df = parse_batch_result(mash_paths, mash_db_summary)
             annotated_df = pd.concat([kraken2_df, mash_df], axis=1)
             annotated_df.to_csv(self.output().path, index=1, index_label="sample ID")
