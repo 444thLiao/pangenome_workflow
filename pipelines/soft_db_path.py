@@ -30,6 +30,8 @@ mlst_path = '/tools/mlst/bin/mlst'
 kraken2_path = '/tools/kraken2/kraken2'
 seqtk_path = '/usr/bin/seqtk'
 roary_plot_path = "/tools/Roary/contrib/roary_plots/roary_plots.py"
+mash_path = "/tools/mash-Linux64-v2.1.1/mash"
+
 ############################################################
 # database path
 ############################################################
@@ -42,3 +44,8 @@ ariba_str = str({k: "{db}/{name}".format(db=ariba_db, name=k.lower()) for k in a
 mlst_db = '/tools/mlst/db/pubmlst/'
 phigaro_config = "/home/db_public/phigaro_db/config.yml"
 kraken2_db = "/home/db_public/kraken2_db/"
+
+mash_db = "/home/liaoth/data/RefSeq88n.msh"
+# download from https://mash.readthedocs.io/en/latest/data.html
+mash_db_summary = '/home/liaoth/data/assembly_summary_refseq.txt'
+# download from

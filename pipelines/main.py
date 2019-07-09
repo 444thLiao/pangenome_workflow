@@ -160,11 +160,10 @@ def testdata(odir):
 def check(update):
     required_soft = {"fastqc", "multiqc", "shovill", "prokka", "roary", "quast", "pandoo", "fasttree", "ISEscan", "abricate", "phigaro",
                      "mlst", "kraken2", "seqtk"}
-    import soft_db_path as ori_path
     for s in required_soft:
         path_exist = eval("os.path.exists(ori_path.%s_path)" % s)
         if path_exist:
-                print("\033[1;32;40m {:<10}: software exists".format(s))
+            print("\033[1;32;40m {:<10}: software exists".format(s))
         else:
             print("\033[1;31;40m {:<10}: no requested files".format(s))
 
@@ -207,12 +206,12 @@ class workflow(luigi.Task):
                                                 )
         require_tasks["abricate"] = abricate(SE_data=singlereads,
                                              **unify_kwargs)
-        require_tasks["fasttree"] = fasttree(SE_data=singlereads,
-                                             **unify_kwargs)
+        # require_tasks["fasttree"] = fasttree(SE_data=singlereads,
+        #                                      **unify_kwargs)
         require_tasks["seqtk"] = seqtk_summary(SE_data=singlereads,
                                                **unify_kwargs)
-        require_tasks["kraken2"] = kraken2_summary(SE_data=singlereads,
-                                                   **unify_kwargs)
+        require_tasks["species_annotated"] = species_annotated_summary(SE_data=singlereads,
+                                                             **unify_kwargs)
         require_tasks["ISEscan_summary"] = ISEscan_summary(SE_data=singlereads,
                                                            **unify_kwargs)
         require_tasks["mlst_summary"] = mlst_summary(SE_data=singlereads,

@@ -462,6 +462,19 @@ def run_seqtk_reads(infile, outfile, isolate,
     write_pandas_df(outfile, metrics_df)
 
 
+def run_mash(infile,
+             outfile,
+             thread,
+             db=mash_db,
+             dry_run=False,
+             log_file=None
+             ):
+    if db.endswith('.msh'):
+        pass
+    run_cmd(f"{mash_path} dist {db} {infile} -p {thread} -v 0.05 > {outfile}",
+            dry_run=dry_run, log_file=log_file)
+
+
 def run_kraken(infile,
                outfile,
                fmt,
@@ -495,7 +508,7 @@ def run_kraken(infile,
                 compression = '--bzip2-compressed'
                 break
 
-        cmd_kraken = "{kraken2_path} --threads {threads} --db {dbase} {compression} --paired --report {outfile} --output {outfile}.kraken2_output --memory-mapping {infiles} ".format(
+        cmd_kraken = "{kraken2_path} --threads {threads} --db {dbase} {compression} --paired --report {outfile} --memory-mapping {infiles} ".format(
             kraken2_path=kraken2_path,
             threads=threads,
             dbase=dbase,
@@ -506,7 +519,7 @@ def run_kraken(infile,
     if fmt == 'contigs':
         assert len(infile) == 1
         infile = infile[0]
-        cmd_kraken = "{kraken2_path} --threads {threads} --db {dbase} --report {outfile} --output {outfile}.kraken2_output --memory-mapping {infile} ".format(
+        cmd_kraken = "{kraken2_path} --threads {threads} --db {dbase} --report {outfile} --memory-mapping {infile} ".format(
             kraken2_path=kraken2_path,
             threads=threads,
             dbase=dbase,

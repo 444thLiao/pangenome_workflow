@@ -349,7 +349,7 @@ dependencies:
   - sqlite=3.26.0=h67949de_1001
   - system=5.8=2
   - t_coffee=11.0.8=py36_2
-  - tbl2asn=25.3=0
+  - tbl2asn
   - tidyp=1.04=1
   - tk=8.6.9=h84994c4_1001
   - trimmomatic=0.39=1

@@ -350,26 +350,69 @@ class prokka(base_luigi_task):
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
 
-class roary(base_luigi_task):
-    # comparative
+class pre_roary(base_luigi_task):
     PE_data = luigi.TupleParameter()
     SE_data = luigi.TupleParameter()
 
     def requires(self):
         kwargs = self.get_kwargs()
-        return [prokka(R1=_R1,
-                       R2=_R2,
-                       sample_name=sn,
-                       **kwargs)
-                for sn, _R1, _R2 in self.PE_data] + \
-               [prokka(R1=_R1,
-                       R2='',
-                       sample_name=sn,
-                       **kwargs)
-                for sn, _R1 in self.SE_data]
+        tasks = {}
+        tasks["prokka"] = [prokka(R1=_R1,
+                                  R2=_R2,
+                                  sample_name=sn,
+                                  **kwargs)
+                           for sn, _R1, _R2 in self.PE_data] + \
+                          [prokka(R1=_R1,
+                                  R2='',
+                                  sample_name=sn,
+                                  **kwargs)
+                           for sn, _R1 in self.SE_data]
+        tasks["annotated_species"] = species_annotated_summary(PE_data=self.PE_data,
+                                                               SE_data=self.SE_data,
+                                                               **kwargs)
+        return tasks
 
     def output(self):
-        odir = os.path.join(str(self.odir), "all_roary_o")
+        odir = os.path.join(str(self.odir),
+                            summary_dir)
+
+        ofile = os.path.join(odir, 'pairwise_mash.dist')
+        return luigi.LocalTarget(ofile)
+
+    def run(self):
+        from toolkit.pre_roary import pairwise_mash
+        kwargs = self.get_kwargs()
+        infiles = [_.path for _ in self.input()["prokka"]]
+        odir = dirname(self.output().path)
+        db = os.path.join(odir, 'pairwise_ref.msh')
+        thread = int(self.thread) - 1
+        org_annotated = self.input()["annotated_species"].path
+        cluster_df = pairwise_mash(infile=infiles,
+                                   odir=odir,
+                                   db=db,
+                                   thread=thread,
+                                   org_annotated=org_annotated)
+        for group in set(cluster_df.loc[:, "clustering"]):
+            sub_df = cluster_df.loc[cluster_df.loc[:, "clustering"] == group, :]
+            if sub_df.shape[0] > 5:
+                new_SE_data = tuple([_ for _ in self.SE_data if _ in sub_df.index])
+                new_PE_data = tuple([_ for _ in self.PE_data if _ in sub_df.index])
+                yield roary(PE_data=new_PE_data,
+                            SE_data=new_SE_data,
+                            name="set%s" % group,
+                            **kwargs)
+
+
+class roary(base_luigi_task):
+    # comparative
+    PE_data = luigi.TupleParameter()
+    SE_data = luigi.TupleParameter()
+    name = luigi.Parameter()
+
+    def output(self):
+
+        odir = os.path.join(str(self.odir),
+                            "%s_roary_o" % self.name)
         return [luigi.LocalTarget(os.path.join(odir, "core_gene_alignment.aln")),
                 luigi.LocalTarget(os.path.join(odir, "clustered_proteins"))]
 
@@ -390,12 +433,14 @@ class fasttree(base_luigi_task):
     # comparative
     PE_data = luigi.TupleParameter()
     SE_data = luigi.TupleParameter()
+    name = luigi.Parameter()
 
     def requires(self):
         kwargs = self.get_kwargs()
         return roary(PE_data=self.PE_data,
                      SE_data=self.SE_data,
-                     **kwargs)
+                     name=self.name
+                          ** kwargs)
 
     def output(self):
         aln_file = self.input()[0].path
@@ -622,6 +667,7 @@ class mlst_summary(base_luigi_task):
             run_cmd("touch %s" % self.output().path, dry_run=False)
 
 
+## annotated species
 class kraken2_tasks(prokka):
 
     def output(self):
@@ -642,9 +688,8 @@ class kraken2_tasks(prokka):
         valid_path(odir, check_odir=1)
         if self.dry_run:
             for _ in self.output():
-                run_cmd("touch %s" % _,
+                run_cmd("touch %s" % _.path,
                         dry_run=False)
-            return
         kwargs = dict(dbase=kraken2_db,
                       threads=self.thread - 1,
                       dry_run=self.dry_run,
@@ -700,6 +745,82 @@ class kraken2_summary(base_luigi_task):
         merged_kraken2_report.to_csv(self.output().path, index=1)
 
 
+class mash_tasks(prokka):
+    def output(self):
+        odir = os.path.join(str(self.odir), "mash_report")
+        valid_path(odir, check_odir=1)
+        ofiles = []
+
+        ofiles.append(os.path.join(odir,
+                                   "%s_contig.mash_report" % self.sample_name))
+
+        return [luigi.LocalTarget(_) for _ in ofiles]
+
+    def run(self):
+        odir = os.path.join(str(self.odir), "mash_report")
+        valid_path(odir, check_odir=1)
+        if self.dry_run:
+            for _ in self.output():
+                run_cmd("touch %s" % _.path,
+                        dry_run=False)
+
+        run_mash(infile=self.input().path,
+                 outfile=os.path.join(odir,
+                                      "%s_contig.mash_report" % self.sample_name),
+                 thread=self.thread - 1,
+                 db=mash_db,
+                 dry_run=self.dry_run,
+                 log_file=self.get_log_path())
+
+
+class species_annotated_summary(base_luigi_task):
+    PE_data = luigi.TupleParameter()
+    SE_data = luigi.TupleParameter()
+
+    def requires(self):
+        kwargs = self.get_kwargs()
+        kwargs["PE_data"] = self.PE_data
+        kwargs["SE_data"] = self.SE_data
+        required_tasks = []
+        required_tasks += [kraken2_summary(**kwargs)]
+        required_tasks += [mash_tasks(R1=_R1,
+                                      R2=_R2,
+                                      sample_name=sn,
+                                      **kwargs)
+                           for sn, _R1, _R2 in self.PE_data]
+        required_tasks += [mash_tasks(R1=_R1,
+                                      sample_name=sn,
+                                      **kwargs)
+                           for sn, _R1 in self.SE_data]
+        return required_tasks
+
+    def output(self):
+        ofile = os.path.join(str(self.odir),
+                             constant.summary_dir,
+                             "species_annotated.csv")
+        return luigi.LocalTarget(ofile)
+
+    def run(self):
+        if self.dry_run:
+            for _ in [self.output()]:
+                run_cmd("touch %s" % _.path,
+                        dry_run=False)
+        else:
+            from toolkit.process_mash import parse_batch_result
+            kraken2_summary_path = self.input()[0].path
+            kraken2_df = pd.read_csv(kraken2_summary_path, index_col=1)
+
+            mash_paths = [_.path for _ in self.input()
+                          if _.path.endswith(".mash_report")]
+            mash_df = parse_batch_result(mash_paths, mash_db_summary)
+            annotated_df = pd.concat([kraken2_df, mash_df], axis=1)
+            annotated_df.to_csv(self.output().path, index=1, index_label="sample ID")
+
+
+## annotated species <end>
+
+
+## transposed element annotated
 class ISEscan(base_luigi_task):
     # single
     R1 = luigi.Parameter()
@@ -943,6 +1064,7 @@ class phigaro_summary(ISEscan_summary):
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
 
+## transposed element annotated <end>
 #
 # class pandoo(base_luigi_task):
 #     # single and joint

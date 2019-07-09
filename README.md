@@ -79,7 +79,7 @@ Although I have try real data for test, but different kinds of input is unpredic
 1. Why my workflow stop and hang up such a lot time and doesn't consume any CPU resource?
     > I think it is the problem I mention it above. Inside the original version of phigaro, it will ask the user to input yes or no to continue. If you using the original version of phigaro, please change it to forked version of mine. https://github.com/444thLiao/phigaro . If you want to know what i have change, you could see the file under the phigaro project (`phigaro/batch/task/preprocess.py`)
 2. How could I change the parameter of one of the task?
-    > For now, it may be difficult to change it easily. You may need to go inside the project and find the file `pipelines/constant_str.py`. You could change the command line template for meet you requirement, but you need to be careful these `{}` and not to change them. 
+    > For now, it may be difficult to change it easily. You may need to go inside the project and find the file `pipelines/constant_str.py`. You could change the command line template for meet you requirement, but you need to be careful these `{}` and not to change them.
 2. Could I add more tasks?
     > Yes, of course you could manually reconstruct and add/delete more tasks. But first you should look carefully at `pipelines/pangenome_pipelines.py`. All sub tasks of luigi were put here, you should process the dependency of them.
 
