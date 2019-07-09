@@ -82,16 +82,19 @@ def summary_abricate(odir):
         except EmptyDataError:
             continue
         seq_id = list(df.loc[:, "SEQUENCE"])
+        # locus id within gff file annotated by prokka
         genes = [gene_process(_) for _ in df.loc[:, 'GENE']]
+        # gene name from abricate database
         db = os.path.basename(tab).split('_')[1].split('.')[0]
         annotate2db.update({g: db for g in genes})
         # only compare among one sample.
         prepare_update_dict = dict(zip(seq_id, genes))
-        for k in seq_id:
+        for k in set(seq_id):
             if k in locus2annotate.keys():
                 ori = locus2annotate[k]
                 aft = prepare_update_dict[k]
                 if len(ori) < len(aft):
+                    # shorter is better
                     prepare_update_dict.pop(k)
         locus2annotate.update(prepare_update_dict)
     return locus2annotate, annotate2db

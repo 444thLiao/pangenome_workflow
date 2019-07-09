@@ -98,7 +98,7 @@ def parse_batch_result(infiles, refseq_summary):
         # else: take top 5 or less.
         if filter_df.shape[0] == 0:
             filter_df = a.sort_values('distance')
-            if len(filter_df.shape[0]) >= 5:
+            if filter_df.shape[0] >= 5:
                 filter_df = filter_df.iloc[:5, :]
 
         rids = ['_'.join(_.split('_')[:2])
