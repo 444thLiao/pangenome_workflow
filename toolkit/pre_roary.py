@@ -21,6 +21,22 @@ from pipelines.soft_db_path import mash_path
 @click.option("--db", help='ref database for pairwise mash, could be none. It will auto named')
 @click.option("--thread", help='number of threads to perform mash analysis.')
 @click.option("--cutoff", help="cutoff values which taken as bound of each cluster.")
+def cli(infiles,
+        odir,
+        thread,
+        org_annotated,
+        db=None,
+        cutoff=0.05,
+        force_cmd=False):
+    pairwise_mash(infiles,
+                  odir,
+                  thread,
+                  org_annotated,
+                  db=db,
+                  cutoff=cutoff,
+                  force_cmd=force_cmd)
+
+
 def pairwise_mash(infiles,
                   odir,
                   thread,
@@ -72,5 +88,6 @@ def pairwise_mash(infiles,
 
     return aln2org
 
+
 if __name__ == '__main__':
-    pairwise_mash()
+    cli()

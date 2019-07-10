@@ -1,5 +1,5 @@
 import luigi
-
+from os.path import dirname
 from pipelines import constant_str as constant
 from pipelines.tasks import *
 
@@ -387,7 +387,7 @@ class pre_roary(base_luigi_task):
         db = os.path.join(odir, 'pairwise_ref.msh')
         thread = int(self.thread) - 1
         org_annotated = self.input()["annotated_species"].path
-        cluster_df = pairwise_mash(infile=infiles,
+        cluster_df = pairwise_mash(infiles=infiles,
                                    odir=odir,
                                    db=db,
                                    thread=thread,
