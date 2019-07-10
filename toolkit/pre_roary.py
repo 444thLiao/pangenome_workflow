@@ -77,6 +77,12 @@ def pairwise_mash(infiles,
     pairwise_df.to_csv(join(odir,
                             "pairwise_mash.dist"),
                        index=1, index_label=pairwise_df.index.name)
+    # Clustering process
+    # Using AgglomerativeClustering to perform radius based cluster
+    # TODO: This kind of clustering method could not accept 'single sample is clustered into multiple clusters'
+    # But in real situation, this is necessary... because of there may have marginal samples or \
+    # contaminated samples(which part of sequence like one set but another part like another set. In that situation, we need to include this sample at both set.).
+    # Find another method to perform clustering? Or just use simple nearest neighbour.
     model = AgglomerativeClustering(distance_threshold=cutoff,
                                     n_clusters=None,
                                     affinity='precomputed',

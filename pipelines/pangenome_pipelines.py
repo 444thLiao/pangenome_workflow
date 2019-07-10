@@ -312,7 +312,7 @@ class shovill(base_luigi_task):
 class prokka(base_luigi_task):
     """
     representation of task which process assembly contigs or single raw reads.
-    For inheritance
+    Could used for inheritance
     """
     R1 = luigi.Parameter()
     R2 = luigi.Parameter()
@@ -406,7 +406,11 @@ class pre_roary(base_luigi_task):
             names = list(cluster_df.loc[:, "clustering"])
             set2sids = defaultdict(list)
             for n, sid in zip(names, sids):
-                set2sids["set%s" % n].append(sid)
+                annotated_org = cluster_df.loc[cluster_df.loc[:, "clustering"] == n,
+                                               "annotated organism"]
+                most_org = annotated_org.value_counts().index[0]
+                most_species = most_org.split()[-1]
+                set2sids["set%s_%s" % (n, most_species)].append(sid)
             yield batch_roary(set2sids=set2sids,
                               **kwargs)
 
@@ -437,7 +441,7 @@ class batch_roary(base_luigi_task):
     def run(self):
         # do roary_plot?
         for _ in self.output():
-            run_cmd("touch %s" % _.path,dry_run=False)
+            run_cmd("touch %s" % _.path, dry_run=False)
 
 
 class roary(base_luigi_task):
