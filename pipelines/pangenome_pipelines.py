@@ -1,5 +1,7 @@
+from os.path import join
+
 import luigi
-from os.path import dirname
+
 from pipelines import constant_str as constant
 from pipelines.tasks import *
 
@@ -374,9 +376,11 @@ class pre_roary(base_luigi_task):
 
     def output(self):
         odir = os.path.join(str(self.odir),
-                            summary_dir)
+                            summary_dir,
+                            "pairwise_mash")
 
         ofile = os.path.join(odir, 'pairwise_mash.dist')
+        valid_path(ofile,check_ofile=1)
         return luigi.LocalTarget(ofile)
 
     def run(self):
@@ -419,7 +423,7 @@ class roary(base_luigi_task):
     def run(self):
         valid_path(self.output()[0].path, check_ofile=1)
         prokka_dir = os.path.join(self.odir, 'prokka_o')
-        gff_files = glob(prokka_dir, '*', '*.gff')
+        gff_files = glob(join(prokka_dir, '*', '*.gff'))
 
         if self.name != 'all':
             processed_sid = [sn for sn, _R1, _R2 in self.PE_data] + \
@@ -427,6 +431,7 @@ class roary(base_luigi_task):
             gff_files = [_
                          for _ in gff_files
                          if os.path.basename(os.path.dirname(_)) in processed_sid]
+            # filter out gff files which samples not in given processed_sid
 
         run_roary(gff_files,
                   os.path.dirname(self.output()[0].path),
@@ -448,8 +453,8 @@ class fasttree(base_luigi_task):
         kwargs = self.get_kwargs()
         return roary(PE_data=self.PE_data,
                      SE_data=self.SE_data,
-                     name=self.name
-                          ** kwargs)
+                     name=self.name,
+                     **kwargs)
 
     def output(self):
         aln_file = self.input()[0].path
