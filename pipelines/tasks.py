@@ -599,7 +599,7 @@ def post_analysis(workflow_task):
     if workflow_task.dry_run:
         print("Dry run complete without post-analysis function.")
         return
-    roary_dir = os.path.dirname(workflow_task.input()["fasttree"].path)
+    list_roary_dir = glob(os.path.join(workflow_task.odir,'*_roary_o'))
     prokka_o = os.path.join(workflow_task.odir,
                             'prokka_o')
     abricate_file = workflow_task.input()["abricate"].path
@@ -613,84 +613,89 @@ def post_analysis(workflow_task):
     # 3. summary into matrix
     # 4. summary statistic info
     # prepare the accessory obj
-    locus2group, locus2annotate, sample2gff = get_accessory_obj(roary_dir,
-                                                                abricate_file,
-                                                                prokka_o)
-    # get locus annotation(abricate)/group(roary) from different files.
-    # sample2gff contains three objs:
-    #   gff_db(for query), empty_gff_obj(gff obj but removed features), gff_obj(complete gff obj)
-    empty_sample2gff = {sn: vals[1]
-                        for sn, vals in sample2gff.items()}
-    ori_sample2gff = {sn: vals[2]
-                      for sn, vals in sample2gff.items()}
+    for roary_dir in list_roary_dir:
+        set_name = os.path.basename(roary_dir).split('_')[0]
+        locus2group, locus2annotate, sample2gff = get_accessory_obj(roary_dir,
+                                                                    abricate_file,
+                                                                    prokka_o)
+        # get locus annotation(abricate)/group(roary) from different files.
+        # sample2gff contains three objs:
+        #   gff_db(for query), empty_gff_obj(gff obj but removed features), gff_obj(complete gff obj)
+        empty_sample2gff = {sn: vals[1]
+                            for sn, vals in sample2gff.items()}
+        ori_sample2gff = {sn: vals[2]
+                          for sn, vals in sample2gff.items()}
 
-    merged_locus2annotate = locus2group.copy()
-    merged_locus2annotate.update(locus2annotate)
-    # use annotate to overlap group info.
-    # merged them
-    ############
-    summary_task_tags = ["detect_prophage",
-                         "detect_plasmid",
-                         "ISEscan_summary"]
-    summary_task_source = ["phigaro",
-                           "plasmidSpades+bwa",
-                           "isescan"]
-    names = ["Prophage", "Plasmid", "IS"]
-    annotated_sample2gff = copy.deepcopy(ori_sample2gff)
-    for record in [record
-                   for contig2record in annotated_sample2gff.values()
-                   for record in contig2record.values()]:
-        for fea in record.features:
-            if fea.type == 'CDS':
-                locus_id = fea.id
-                annotated = merged_locus2annotate.get(locus_id, locus_id)
-                fea.qualifiers["ID"] = fea.qualifiers['locus_tag'] = [annotated]
-                fea.id = annotated
-    ###########
-    # main part for generate multiple GFF files
-    for tag, source, name in zip(summary_task_tags,
-                                 summary_task_source,
-                                 names):
-        pth = workflow_task.input()[tag].path
+        merged_locus2annotate = locus2group.copy()
+        merged_locus2annotate.update(locus2annotate)
+        # use annotate to overlap group info.
+        # merged them
+        ############
+        summary_task_tags = ["detect_prophage",
+                             "detect_plasmid",
+                             "ISEscan_summary"]
+        summary_task_source = ["phigaro",
+                               "plasmidSpades+bwa",
+                               "isescan"]
+        names = ["Prophage", "Plasmid", "IS"]
+        annotated_sample2gff = copy.deepcopy(ori_sample2gff)
+        for record in [record
+                       for contig2record in annotated_sample2gff.values()
+                       for record in contig2record.values()]:
+            for fea in record.features:
+                if fea.type == 'CDS':
+                    locus_id = fea.id
+                    annotated = merged_locus2annotate.get(locus_id, locus_id)
+                    fea.qualifiers["ID"] = fea.qualifiers['locus_tag'] = [annotated]
+                    fea.id = annotated
+        ###########
+        # main part for generate multiple GFF files
+        for tag, source, name in zip(summary_task_tags,
+                                     summary_task_source,
+                                     names):
+            pth = workflow_task.input()[tag].path
 
-        annotated_sample2gff_records = write_new_gff(pth,
-                                                     empty_sample2gff,
-                                                     source=source)
-        subset_sample2gff_records = cut_old_gff(pth,
-                                                annotated_sample2gff,
-                                                source=source)
-        samples2annotated_df = summary_into_matrix(subset_sample2gff_records,
-                                                   unique_by=None)
-        summary_df = summary_statistic(ori_sample2gff,
-                                       subset_sample2gff_records,
-                                       name
-                                       )
-        # output
-        full_gff_with_region_dir = os.path.join(summary_odir,
-                                                "gff_with_%s" % name)
-        subset_gff_with_annotated_dir = os.path.join(summary_odir,
-                                                     "gff_of_%s" % name)
-        annotated_gff_odir = os.path.join(summary_odir,
-                                          "annotated_gff")
-        valid_path([full_gff_with_region_dir,
-                    subset_gff_with_annotated_dir,
-                    annotated_gff_odir
-                    ], check_odir=1)
-        for sn, records in annotated_sample2gff_records.items():
-            filename = "%s.gff" % sn
-            with open(os.path.join(full_gff_with_region_dir,
-                                   filename), 'w') as f1:
-                GFF.write(records, f1)
-            with open(os.path.join(subset_gff_with_annotated_dir,
-                                   filename), 'w') as f1:
-                GFF.write(subset_sample2gff_records[sn], f1)
-            with open(os.path.join(annotated_gff_odir,
-                                   filename), 'w') as f1:
-                GFF.write(list(annotated_sample2gff[sn].values()), f1)
-        with open(os.path.join(summary_odir, "%s_annotated_matrix.csv" % name), 'w') as f1:
-            samples2annotated_df.to_csv(f1, sep=',', index=1)
-        with open(os.path.join(summary_odir, "%s_statistic.csv" % name), 'w') as f1:
-            summary_df.to_csv(f1, sep=',', index=1)
+            annotated_sample2gff_records = write_new_gff(pth,
+                                                         empty_sample2gff,
+                                                         source=source)
+            subset_sample2gff_records = cut_old_gff(pth,
+                                                    annotated_sample2gff,
+                                                    source=source)
+            samples2annotated_df = summary_into_matrix(subset_sample2gff_records,
+                                                       unique_by=None)
+            summary_df = summary_statistic(ori_sample2gff,
+                                           subset_sample2gff_records,
+                                           name
+                                           )
+            # output
+            full_gff_with_region_dir = os.path.join(summary_odir,
+                                                    set_name,
+                                                    "gff_with_%s" % name)
+            subset_gff_with_annotated_dir = os.path.join(summary_odir,
+                                                         set_name,
+                                                         "gff_of_%s" % name)
+            annotated_gff_odir = os.path.join(summary_odir,
+                                              set_name,
+                                              "annotated_gff")
+            valid_path([full_gff_with_region_dir,
+                        subset_gff_with_annotated_dir,
+                        annotated_gff_odir
+                        ], check_odir=1)
+            for sn, records in annotated_sample2gff_records.items():
+                filename = "%s.gff" % sn
+                with open(os.path.join(full_gff_with_region_dir,
+                                       filename), 'w') as f1:
+                    GFF.write(records, f1)
+                with open(os.path.join(subset_gff_with_annotated_dir,
+                                       filename), 'w') as f1:
+                    GFF.write(subset_sample2gff_records[sn], f1)
+                with open(os.path.join(annotated_gff_odir,
+                                       filename), 'w') as f1:
+                    GFF.write(list(annotated_sample2gff[sn].values()), f1)
+            with open(os.path.join(summary_odir, "%s_annotated_matrix.csv" % name), 'w') as f1:
+                samples2annotated_df.to_csv(f1, sep=',', index=1)
+            with open(os.path.join(summary_odir, "%s_statistic.csv" % name), 'w') as f1:
+                summary_df.to_csv(f1, sep=',', index=1)
 
     ############################################################
     # mlst

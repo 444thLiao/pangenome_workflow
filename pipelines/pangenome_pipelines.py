@@ -426,7 +426,7 @@ class batch_roary(base_luigi_task):
         return tasks
 
     def output(self):
-        tree_list = [_.path for _ in self.input()]
+        tree_list = [_[0].path for _ in self.input()]
         ofiles = [_.replace('.newick',
                             '.done')
                   for _ in tree_list]
