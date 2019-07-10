@@ -819,7 +819,7 @@ class species_annotated_summary(base_luigi_task):
         else:
             from toolkit.process_mash import parse_batch_result
             kraken2_summary_path = self.input()['k2_summary'].path
-            kraken2_df = pd.read_csv(kraken2_summary_path, index_col=1)
+            kraken2_df = pd.read_csv(kraken2_summary_path, index_col=0)
 
             mash_paths = [otarget.path
                           for req_task in self.input()["mash"]

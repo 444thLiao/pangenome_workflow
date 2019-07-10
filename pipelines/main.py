@@ -207,12 +207,12 @@ class workflow(luigi.Task):
         require_tasks["abricate"] = abricate(SE_data=singlereads,
                                              **unify_kwargs)
         require_tasks["pre_roary"] = pre_roary(SE_data=singlereads,
-                                             **unify_kwargs)
+                                               **unify_kwargs)
         # fixme
         require_tasks["seqtk"] = seqtk_summary(SE_data=singlereads,
                                                **unify_kwargs)
         require_tasks["species_annotated"] = species_annotated_summary(SE_data=singlereads,
-                                                             **unify_kwargs)
+                                                                       **unify_kwargs)
         require_tasks["ISEscan_summary"] = ISEscan_summary(SE_data=singlereads,
                                                            **unify_kwargs)
         require_tasks["mlst_summary"] = mlst_summary(SE_data=singlereads,
