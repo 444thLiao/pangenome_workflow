@@ -721,19 +721,19 @@ def post_analysis(workflow_task):
                             abricate_gff_dir))
     ############################################################
     # fasttree
-    core_gene_tree = workflow_task.input()["fasttree"].path
-    os.system("cp %s %s" % (core_gene_tree,
-                            summary_odir))
+    # core_gene_tree = workflow_task.input()["fasttree"].path
+    # os.system("cp %s %s" % (core_gene_tree,
+    #                         summary_odir))
     ############################################################
     # roary plot
-    cmdline = "cd {roarydir}; {roary_plot} {core_gene_tree} {ab_csv}".format(roarydir=roary_dir,
-                                                                             roary_plot=roary_plot_path,
-                                                                             core_gene_tree=core_gene_tree,
-                                                                             ab_csv=os.path.join(roary_dir,
-                                                                                                 "gene_presence_absence.csv"))
-    run_cmd(cmdline,
-            dry_run=workflow_task.dry_run,
-            log_file=workflow_task.log_path)
+    # cmdline = "cd {roarydir}; {roary_plot} {core_gene_tree} {ab_csv}".format(roarydir=roary_dir,
+    #                                                                          roary_plot=roary_plot_path,
+    #                                                                          core_gene_tree=core_gene_tree,
+    #                                                                          ab_csv=os.path.join(roary_dir,
+    #                                                                                              "gene_presence_absence.csv"))
+    # run_cmd(cmdline,
+    #         dry_run=workflow_task.dry_run,
+    #         log_file=workflow_task.log_path)
 
 
 ############################################################

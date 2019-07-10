@@ -49,7 +49,7 @@ def archive(indir, odir, name=None):
                                target_dir=output_directory)
     # for roary
     cmd += cmd_template.format(source=os.path.join(indir,
-                                                   "all_roary_o"),
+                                                   "*_roary_o"),
                                target_dir=output_directory)
     # for phigaro, seqtk, mlst, plasmid, IS,
     cmd += cmd_template.format(source=os.path.join(indir,
@@ -106,9 +106,9 @@ def recovery(indir, name=None):
                                       "pipelines_summary"))
     # for roary
     cmd += rev_mv(source=os.path.join(in_directory,
-                                      "all_roary_o"),
+                                      "*_roary_o"),
                   target=os.path.join(indir,
-                                      "all_roary_o"))
+                                      "*_roary_o"))
     # for phigaro, seqtk, mlst, plasmid, IS,
     cmd += rev_mv(source=os.path.join(in_directory,
                                       constant.summary_dir),

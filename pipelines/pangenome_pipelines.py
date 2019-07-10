@@ -352,6 +352,7 @@ class prokka(base_luigi_task):
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
 
+## pangenome analysis part
 class pre_roary(base_luigi_task):
     PE_data = luigi.TupleParameter()
     SE_data = luigi.TupleParameter()
@@ -378,41 +379,74 @@ class pre_roary(base_luigi_task):
         odir = os.path.join(str(self.odir),
                             summary_dir,
                             "pairwise_mash")
-
         ofile = os.path.join(odir, 'pairwise_mash.dist')
         valid_path(ofile, check_ofile=1)
         return luigi.LocalTarget(ofile)
 
     def run(self):
-        from toolkit.pre_roary import pairwise_mash
+        if self.dry_run:
+            for _o in [self.output()]:
+                run_cmd("touch %s" % _o.path, dry_run=False)
+        else:
+            from toolkit.pre_roary import pairwise_mash
+            kwargs = self.get_kwargs()
+            infiles = [_.path for _ in self.input()["prokka"]]
+            odir = dirname(self.output().path)
+            db = os.path.join(odir, 'pairwise_ref.msh')
+            thread = int(self.thread) - 1
+            org_annotated = self.input()["annotated_species"].path
+
+            cluster_df = pairwise_mash(infiles=infiles,
+                                       odir=odir,
+                                       db=db,
+                                       thread=thread,
+                                       org_annotated=org_annotated,
+                                       log_file=self.get_log_path())
+            sids = list(cluster_df.index)
+            names = list(cluster_df.loc[:, "clustering"])
+            set2sids = defaultdict(list)
+            for n, sid in zip(names, sids):
+                set2sids["set%s" % n].append(sid)
+            yield batch_roary(set2sids=set2sids,
+                              **kwargs)
+
+
+class batch_roary(base_luigi_task):
+    set2sids = luigi.DictParameter()
+
+    def requires(self):
         kwargs = self.get_kwargs()
-        infiles = [_.path for _ in self.input()["prokka"]]
-        odir = dirname(self.output().path)
-        db = os.path.join(odir, 'pairwise_ref.msh')
-        thread = int(self.thread) - 1
-        org_annotated = self.input()["annotated_species"].path
-        cluster_df = pairwise_mash(infiles=infiles,
-                                   odir=odir,
-                                   db=db,
-                                   thread=thread,
-                                   org_annotated=org_annotated)
-        for group in set(cluster_df.loc[:, "clustering"]):
-            sub_df = cluster_df.loc[cluster_df.loc[:, "clustering"] == group, :]
-            if sub_df.shape[0] > 5:
-                new_SE_data = tuple([_ for _ in self.SE_data if _ in sub_df.index])
-                new_PE_data = tuple([_ for _ in self.PE_data if _ in sub_df.index])
-                yield roary(PE_data=new_PE_data,
-                            SE_data=new_SE_data,
-                            name="set%s" % group,
-                            **kwargs)
+        tasks = []
+        for name, sids in self.set2sids.items():
+            if len(sids) > 5:
+                # pass sample ID need to perform pangenome analysis
+                tasks.append(fasttree(sids=sids,
+                                      name=name,
+                                      **kwargs))
+        return tasks
+
+    def output(self):
+        tree_list = [_.path for _ in self.input()]
+        ofiles = [_.replace('.newick',
+                            '.done')
+                  for _ in tree_list]
+        # touch a file to indicate the status of batch_roary
+        return [luigi.LocalTarget(ofile)
+                for ofile in ofiles]
+
+    def run(self):
+        # do roary_plot?
+        for _ in self.output():
+            run_cmd("touch %s" % _.path,dry_run=False)
 
 
 class roary(base_luigi_task):
     # comparative
-    PE_data = luigi.TupleParameter()
-    SE_data = luigi.TupleParameter()
+    sids = luigi.TupleParameter()
     name = luigi.Parameter()
 
+    # requiresment
+    # has been meet at `pre_roary` tasks
     def output(self):
 
         odir = os.path.join(str(self.odir),
@@ -426,8 +460,7 @@ class roary(base_luigi_task):
         gff_files = glob(join(prokka_dir, '*', '*.gff'))
 
         if self.name != 'all':
-            processed_sid = [sn for sn, _R1, _R2 in self.PE_data] + \
-                            [sn for sn, _R1 in self.SE_data]
+            processed_sid = self.sids
             gff_files = [_
                          for _ in gff_files
                          if os.path.basename(os.path.dirname(_)) in processed_sid]
@@ -445,31 +478,43 @@ class roary(base_luigi_task):
 
 class fasttree(base_luigi_task):
     # comparative
-    PE_data = luigi.TupleParameter()
-    SE_data = luigi.TupleParameter()
+    sids = luigi.TupleParameter()
     name = luigi.Parameter()
 
     def requires(self):
         kwargs = self.get_kwargs()
-        return roary(PE_data=self.PE_data,
-                     SE_data=self.SE_data,
+        return roary(sids=self.sids,
                      name=self.name,
                      **kwargs)
 
     def output(self):
+        roary_dir = dirname(self.input()[0].path)
         aln_file = self.input()[0].path
-        return luigi.LocalTarget(aln_file.replace('.aln', '.newick'))
+        png_file = join(roary_dir, "pangenome_matrix.png")
+
+        return [luigi.LocalTarget(aln_file.replace('.aln', '.newick')),
+                luigi.LocalTarget(png_file)]
 
     def run(self):
         run_fasttree(self.input()[0].path,
-                     self.output().path,
+                     self.output()[0].path,
                      dry_run=self.dry_run,
                      log_file=self.get_log_path())
+        roary_dir = dirname(self.output()[0].path)
+        cmdline = "cd {roarydir}; {roary_plot} {core_gene_tree} {ab_csv}".format(roarydir=roary_dir,
+                                                                                 roary_plot=roary_plot_path,
+                                                                                 core_gene_tree=self.output()[0].path,
+                                                                                 ab_csv=os.path.join(roary_dir,
+                                                                                                     "gene_presence_absence.csv"))
+        run_cmd(cmdline,
+                dry_run=self.dry_run,
+                log_file=self.get_log_path())
         if self.dry_run:
-            for _o in [self.output()]:
+            for _o in self.output():
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
 
+## quality accessment
 class seqtk_tasks(prokka):
     def output(self):
         odir = os.path.join(str(self.odir), "seqtk_result")
@@ -570,6 +615,7 @@ class seqtk_summary(base_luigi_task):
                     dry_run=False)
 
 
+## gene annotated
 class abricate(base_luigi_task):
     # single and joint
     PE_data = luigi.TupleParameter()
@@ -616,6 +662,7 @@ class abricate(base_luigi_task):
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
 
+## mlst typing
 class mlst_task(prokka):
     def output(self):
         odir = os.path.join(str(self.odir),
@@ -835,9 +882,6 @@ class species_annotated_summary(base_luigi_task):
             mash_df = parse_batch_result(mash_paths, mash_db_summary)
             annotated_df = pd.concat([kraken2_df, mash_df], axis=1)
             annotated_df.to_csv(self.output().path, index=1, index_label="sample ID")
-
-
-## annotated species <end>
 
 
 ## transposed element annotated

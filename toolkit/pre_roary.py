@@ -43,7 +43,8 @@ def pairwise_mash(infiles,
                   org_annotated,
                   db=None,
                   cutoff=0.05,
-                  force_cmd=False):
+                  force_cmd=False,
+                  log_file=None):
     if db is None:
         db = join(odir, 'pairwise_ref.msh')
     if not db.endswith('.msh'):
@@ -54,12 +55,14 @@ def pairwise_mash(infiles,
     infiles_str = ' '.join(infiles)
     if (not os.path.exists(db)) or force_cmd:
         run_cmd(f"{mash_path} sketch -o {db} {infiles_str} -p {thread}",
-                dry_run=False)
+                dry_run=False,
+                log_file=log_file)
     # read in organism annotated dataframe
     aln2org = pd.read_csv(org_annotated, index_col=0, dtype=str)
     assert len(infiles) <= aln2org.shape[0]
     cache_result = run_cmd(f"{mash_path} dist {db} {infiles_str} -p {thread}",
-                           dry_run=False, get_output=1)
+                           dry_run=False, get_output=1,
+                           log_file=log_file)
     parsed_df = pd.read_csv(io.StringIO(cache_result), sep='\t', header=None)
     parsed_df.columns = ["reference-ID", "query-ID", "distance", "p-value", "shared-hashes"]
 
