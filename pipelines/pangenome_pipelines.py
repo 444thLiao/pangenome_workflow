@@ -376,22 +376,26 @@ class pre_roary(base_luigi_task):
         return tasks
 
     def output(self):
+        necessary_file = join(self.odir,
+                              summary_dir,
+                              "all_set_roary.done")
         odir = os.path.join(str(self.odir),
                             summary_dir,
                             "pairwise_mash")
         ofile = os.path.join(odir, 'pairwise_mash.dist')
         valid_path(ofile, check_ofile=1)
-        return luigi.LocalTarget(ofile)
+        return [luigi.LocalTarget(ofile),
+                luigi.LocalTarget(necessary_file)]
 
     def run(self):
         if self.dry_run:
-            for _o in [self.output()]:
+            for _o in self.output():
                 run_cmd("touch %s" % _o.path, dry_run=False)
         else:
             from toolkit.pre_roary import pairwise_mash
             kwargs = self.get_kwargs()
             infiles = [_.path for _ in self.input()["prokka"]]
-            odir = dirname(self.output().path)
+            odir = dirname(self.output()[0].path)
             db = os.path.join(odir, 'pairwise_ref.msh')
             thread = int(self.thread) - 1
             org_annotated = self.input()["annotated_species"].path
@@ -430,17 +434,15 @@ class batch_roary(base_luigi_task):
         return tasks
 
     def output(self):
-        tree_list = [_[0].path for _ in self.input()]
-        ofiles = [_.replace('.newick',
-                            '.done')
-                  for _ in tree_list]
+        necessary_file = join(str(self.odir),
+                              summary_dir,
+                              "all_set_roary.done")
         # touch a file to indicate the status of batch_roary
-        return [luigi.LocalTarget(ofile)
-                for ofile in ofiles]
+        return luigi.LocalTarget(necessary_file)
 
     def run(self):
         # do roary_plot?
-        for _ in self.output():
+        for _ in [self.output()]:
             run_cmd("touch %s" % _.path, dry_run=False)
 
 
