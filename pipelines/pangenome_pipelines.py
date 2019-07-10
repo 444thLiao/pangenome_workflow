@@ -1,4 +1,4 @@
-from os.path import join
+from os.path import join, dirname
 
 import luigi
 
@@ -380,7 +380,7 @@ class pre_roary(base_luigi_task):
                             "pairwise_mash")
 
         ofile = os.path.join(odir, 'pairwise_mash.dist')
-        valid_path(ofile,check_ofile=1)
+        valid_path(ofile, check_ofile=1)
         return luigi.LocalTarget(ofile)
 
     def run(self):

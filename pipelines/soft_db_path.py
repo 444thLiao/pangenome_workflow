@@ -1,5 +1,10 @@
-from os.path import dirname
-project_root = dirname(dirname(__file__))
+def get_project_root():
+    from os.path import dirname
+    project_root = dirname(dirname(__file__))
+    return project_root
+
+
+project_root = get_project_root()
 ############################################################
 # exe path
 ############################################################
