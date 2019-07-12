@@ -54,7 +54,7 @@ def get_accessory_obj(roary_dir,
 def write_new_gff(unify_regions_pth,
                   sample2gff,
                   source="software"):
-    # sample2gff must be empty
+    # sample2gff must be empty (i mean the features of genebank)
     # do not subset the gff file, we just remove all existing features
     # and add regions base annotation into it
     # return a list of data
