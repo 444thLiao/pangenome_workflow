@@ -120,7 +120,10 @@ def main(tree_pth,rooted =False):
             horizontal_draws_x.append(_t[0])
             horizontal_draws_y.append(_t[1] - 1)
 
-        trace1 = go.Scatter(x=horizontal_draws_x, y=horizontal_draws_y, mode='lines', line=go.scatter.Line(color='#444', width=1), hoverinfo='none', xaxis='x1', yaxis='y1')
+        trace1 = go.Scatter(x=horizontal_draws_x, y=horizontal_draws_y,
+                            mode='lines',
+                            line=go.scatter.Line(color='#444', width=1),
+                            hoverinfo='none', xaxis='x1', yaxis='y1')
         fig.add_trace(trace1)
     for _o, _t in vertical_linecollections:
         vertical_draws_x = []
@@ -129,7 +132,10 @@ def main(tree_pth,rooted =False):
         vertical_draws_y.append(_o[1] - 1)
         vertical_draws_x.append(_t[0])
         vertical_draws_y.append(_t[1] - 1)
-        trace1 = go.Scatter(x=vertical_draws_x, y=vertical_draws_y, mode='lines', line=go.scatter.Line(color='#444', width=1), hoverinfo='none', xaxis='x1', yaxis='y1')
+        trace1 = go.Scatter(x=vertical_draws_x, y=vertical_draws_y,
+                            mode='lines',
+                            line=go.scatter.Line(color='#444', width=1),
+                            hoverinfo='none', xaxis='x1', yaxis='y1')
         fig.add_trace(trace1)
     fig.layout.yaxis.tickvals = labels_draw_y
     fig.layout.yaxis.ticktext = [_ for _ in labels if _ is not None]

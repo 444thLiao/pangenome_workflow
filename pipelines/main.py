@@ -200,10 +200,10 @@ class workflow(luigi.Task):
         require_tasks["fastqc_after"] = multiqc(status='after',
                                                 **unify_kwargs
                                                 )
-        require_tasks["fastqc_quast"] = multiqc(status='quast',
-                                                other_info=other_info,
-                                                **unify_kwargs
-                                                )
+        # require_tasks["fastqc_quast"] = multiqc(status='quast',
+        #                                         other_info=other_info,
+        #                                         **unify_kwargs
+        #                                         )
         require_tasks["abricate"] = abricate(SE_data=singlereads,
                                              **unify_kwargs)
         require_tasks["pre_roary"] = pre_roary(SE_data=singlereads,

@@ -424,13 +424,19 @@ class batch_roary(base_luigi_task):
 
     def requires(self):
         kwargs = self.get_kwargs()
+        all_sids = []
         tasks = []
         for name, sids in self.set2sids.items():
+            all_sids += sids
             if len(sids) > 5:
                 # pass sample ID need to perform pangenome analysis
                 tasks.append(fasttree(sids=sids,
                                       name=name,
                                       **kwargs))
+        all_sids = list(set(sids))
+        tasks.append(fasttree(sids=all_sids,
+                              name="all",
+                              **kwargs))
         return tasks
 
     def output(self):
@@ -502,7 +508,8 @@ class fasttree(base_luigi_task):
                 luigi.LocalTarget(png_file)]
 
     def run(self):
-        run_fasttree(self.input()[0].path,
+        if not os.path.exists(self.output()[0].path):
+            run_fasttree(self.input()[0].path,
                      self.output()[0].path,
                      dry_run=self.dry_run,
                      log_file=self.get_log_path())
@@ -623,15 +630,17 @@ class seqtk_summary(base_luigi_task):
 
 ## gene annotated
 class abricate(base_luigi_task):
+    # todo: separate into independent task and summary task
     # single and joint
     PE_data = luigi.TupleParameter()
     SE_data = luigi.TupleParameter()
 
     def requires(self):
         kwargs = self.get_kwargs()
+        all_sids = [sn for sn, _R1, _R2 in self.PE_data] + \
+                   [sn for sn, _R1 in self.SE_data]
         require_tasks = []
-        require_tasks.append(roary(PE_data=self.PE_data,
-                                   SE_data=self.SE_data,
+        require_tasks.append(roary(sids=all_sids,
                                    name='all',
                                    **kwargs))
         require_tasks += [prokka(R1=_R1,
@@ -659,8 +668,8 @@ class abricate(base_luigi_task):
         run_abricate(prokka_o,
                      roary_dir=roary_dir,
                      odir=os.path.dirname(self.output().path),
-                     thread=self.thread - 1,  # todo: determine the thread
-                     mincov=constant.mincov_abricate,  # todo
+                     thread=int(self.thread) - 1,
+                     mincov=constant.mincov_abricate,
                      dry_run=self.dry_run,
                      log_file=self.get_log_path())
         if self.dry_run:
