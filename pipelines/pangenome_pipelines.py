@@ -672,12 +672,6 @@ class abricate(base_luigi_task):
                      mincov=constant.mincov_abricate,
                      dry_run=self.dry_run,
                      log_file=self.get_log_path())
-        source = os.path.join(str(self.odir),
-                              "abricate_result",
-                              "locus2annotate.csv")
-        target = os.path.join(str(self.odir),
-                              constant.summary_dir)
-        run_cmd(f"mv {source} {target}", dry_run=self.dry_run, log_file=self.get_log_path())
         if self.dry_run:
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)
