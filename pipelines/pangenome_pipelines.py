@@ -637,12 +637,7 @@ class abricate(base_luigi_task):
 
     def requires(self):
         kwargs = self.get_kwargs()
-        all_sids = [sn for sn, _R1, _R2 in self.PE_data] + \
-                   [sn for sn, _R1 in self.SE_data]
         require_tasks = []
-        require_tasks.append(roary(sids=all_sids,
-                                   name='all',
-                                   **kwargs))
         require_tasks += [prokka(R1=_R1,
                                  R2=_R2,
                                  sample_name=sn,
@@ -666,8 +661,9 @@ class abricate(base_luigi_task):
         roary_dir = os.path.dirname(self.input()[0][0].path)
         # add(instead of annotated) annotated features into gff
         run_abricate(prokka_o,
-                     roary_dir=roary_dir,
-                     odir=os.path.dirname(self.output().path),
+                     # roary_dir=roary_dir,
+                     odir=os.path.join(str(self.odir),
+                            "abricate_result"),
                      thread=int(self.thread) - 1,
                      mincov=constant.mincov_abricate,
                      dry_run=self.dry_run,
@@ -676,6 +672,9 @@ class abricate(base_luigi_task):
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
+class abricate_summary(base_luigi_task):
+    # todo: separate into independent task and summary task
+    pass
 
 ## mlst typing
 class mlst_task(prokka):
@@ -725,7 +724,7 @@ class mlst_summary(base_luigi_task):
     def output(self):
         ofile = os.path.join(str(self.odir),
                              constant.summary_dir,
-                             "mlst_all.csv", )
+                             "mlst_all.csv")
         return luigi.LocalTarget(ofile)
 
     def run(self):

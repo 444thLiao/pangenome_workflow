@@ -27,7 +27,7 @@ pandoo_cmd = """{exe_path} run -i {input} -o {odir} -t -r -b "{ariba_str}" -c {t
 fasttree_cmd = "{exe_path} -nt -gtr {in_aln} > {o_newick}"
 
 isescan_cmd = """python3 {exe_path} {infile} {proteome_dir} {hmm_dir} -odir {odir} -sn {sn}"""
-abricate_cmd = """python3 {py_path} -i {indir} -r {roary_dir} -o {odir} -db {db} -mc {mincov} --abricate_path {exe_path} --threads {thread} {extra_str}"""
+abricate_cmd = """python3 {py_path} -i {indir} -o {odir} -db {db} -mc {mincov} --abricate_path {exe_path} --threads {thread} {extra_str}"""
 plasmid_detect_cmd = """python3 "{py_path}" -i {indir} -o {ofile} """
 
 phigaro_cmd = "{exe_path} -f {infile} -e txt -t {thread} -o {ofile} -p -c '{phigaro_config}' "   # For run this software, we need to remove the y/N

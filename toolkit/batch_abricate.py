@@ -52,8 +52,35 @@ def run_abricate(prokka_dir,
                         dry_run=dry_run,
                         log_file=log_file)
             ############################################################
-        samples2locus[sample_name] = [_.id for _ in SeqIO.parse(ffn_pth, format='fasta')]
+        samples2locus[sample_name] = [_.id
+                                      for _ in SeqIO.parse(ffn_pth, format='fasta')]
     return samples2locus
+
+
+def get_sample2locus(prokka_dir):
+    samples2locus = defaultdict(list)
+    for ffn_pth in tqdm(glob(os.path.join(prokka_dir,
+                                          "*",
+                                          '*.ffn'))):
+        # ffn has been separated each locus into different record.
+        sample_name = os.path.basename(os.path.dirname(ffn_pth))
+        samples2locus[sample_name] = [_.id
+                                      for _ in SeqIO.parse(ffn_pth, format='fasta')]
+    return samples2locus
+
+def get_abricate_df(prokka_dir,
+                    abricate_odir,
+                    roary_dir):
+    samples2locus = get_sample2locus(prokka_dir)
+    locus2annotate, annotate2db = summary_abricate(abricate_odir)
+    rename_genes = refine_abricate_output(locus2annotate, roary_dir)
+    locus2annotate_df, abricate_result = output_abricate_result(samples2locus,
+                                                                locus2annotate,
+                                                                annotate2db,
+                                                                rename_genes)
+    l2a_pth = os.path.join(odir, 'locus2annotate.csv')
+    locus2annotate_df.to_csv(l2a_pth, index=1)
+    return locus2annotate_df,abricate_result
 
 
 def gene_process(gene):
@@ -170,7 +197,8 @@ if __name__ == '__main__':
 
     args = parse.parse_args()
     indir = os.path.abspath(args.indir)
-    roary_dir = os.path.abspath(args.roary_dir)
+    if args.roary_dir:
+        roary_dir = os.path.abspath(args.roary_dir)
     odir = os.path.abspath(args.outdir)
 
     valid_path([indir, roary_dir], check_dir=True)
@@ -194,8 +222,8 @@ if __name__ == '__main__':
                                                                 rename_genes)
     l2a_pth = os.path.join(odir, 'locus2annotate.csv')
     s2g_pth = os.path.join(odir, "samples2annotate.csv")
-    locus2annotate_df.to_csv(l2a_pth, index=1)
-    abricate_result.to_csv(s2g_pth, index=1)
+    locus2annotate_df.to_csv(l2a_pth, index=1,index_label="locus ID")
+    abricate_result.to_csv(s2g_pth, index=1,index_label="sample ID")
     ############################################################
     # reannotated gff
     prepare_dict = {}

@@ -186,6 +186,7 @@ class workflow(luigi.Task):
         pairreads = inputdata.get_PE_info()
         singlereads = inputdata.get_SE_info()
         other_info = inputdata.get_full_PE_info()
+        # other_info include the gff info and ref_fna info.
         ############################################################
         valid_path(self.odir, check_odir=True)
         unify_kwargs = dict(odir=self.odir,
@@ -208,7 +209,6 @@ class workflow(luigi.Task):
                                              **unify_kwargs)
         require_tasks["pre_roary"] = pre_roary(SE_data=singlereads,
                                                **unify_kwargs)
-        # fixme
         require_tasks["seqtk"] = seqtk_summary(SE_data=singlereads,
                                                **unify_kwargs)
         require_tasks["species_annotated"] = species_annotated_summary(SE_data=singlereads,
@@ -224,8 +224,8 @@ class workflow(luigi.Task):
 
     def run(self):
         # post pipelines
-        post_analysis(self)
-
+        # post_analysis(self)
+        pass
 
 if __name__ == '__main__':
     cli()

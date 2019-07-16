@@ -193,7 +193,7 @@ def run_roary(indir,  # indir/ infiles
 
 
 def run_abricate(indir,
-                 roary_dir,
+                 # roary_dir,
                  odir,
                  thread=0,
                  mincov=80,
@@ -211,7 +211,7 @@ def run_abricate(indir,
     cmd = abricate_cmd.format(py_path=abricate_py_path,
                               exe_path=abricate_path,
                               indir=indir,
-                              roary_dir=roary_dir,
+                              # roary_dir=roary_dir,
                               odir=odir,
                               db=abricate_db,
                               mincov=mincov,

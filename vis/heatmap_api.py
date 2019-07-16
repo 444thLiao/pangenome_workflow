@@ -3,8 +3,15 @@ import plotly.figure_factory as ff
 import plotly.graph_objs as go
 
 
-def create_heatmap(left_dist, main_matrix, up_dist=None, accessory_matrix=None, height=1500, width=None,
-                   main_matrix_text=None,accessory_matrix_text=None,return_matrix=False):
+def create_heatmap(left_dist,
+                   main_matrix,
+                   up_dist=None,
+                   accessory_matrix=None,
+                   height=1500,
+                   width=None,
+                   main_matrix_text=None,
+                   accessory_matrix_text=None,
+                   return_matrix=False):
     fig = plotly.tools.make_subplots(2, 3,
                                      specs=[[None, None, {}],
                                             [{}, {}, {}]],
@@ -14,7 +21,7 @@ def create_heatmap(left_dist, main_matrix, up_dist=None, accessory_matrix=None, 
     #     (empty)          (empty)      [ (1,3) x3,y1 ]
     # [ (2,1) x1,y2 ]  [ (2,2) x2,y2 ]  [ (2,3) x3,y2 ]
     sub_df = main_matrix.copy()
-    _sub_df= None
+    _sub_df = None
     # create up side dendrogram
     if up_dist is not None:
         up_dendro = ff.create_dendrogram(up_dist.values,
@@ -32,8 +39,8 @@ def create_heatmap(left_dist, main_matrix, up_dist=None, accessory_matrix=None, 
         side_dendro = left_dist
     else:
         side_dendro = ff.create_dendrogram(left_dist.values,
-                                       orientation='right',
-                                       labels=left_dist.index)
+                                           orientation='right',
+                                           labels=left_dist.index)
     for i in side_dendro.data:
         i.showlegend = False
         fig.append_trace(i, 2, 1)
@@ -46,7 +53,7 @@ def create_heatmap(left_dist, main_matrix, up_dist=None, accessory_matrix=None, 
         x=sub_df.columns,
         y=sub_df.index,
         z=sub_df.values,
-        text= main_matrix_text.values if main_matrix_text is not None else None,
+        text=main_matrix_text.values if main_matrix_text is not None else None,
         colorscale='Earth',
         reversescale=True,
         showscale=False
@@ -118,9 +125,9 @@ def create_heatmap(left_dist, main_matrix, up_dist=None, accessory_matrix=None, 
     fig.layout.yaxis1.showticklabels = False
     if return_matrix:
         if main_matrix_text is not None or accessory_matrix_text is not None:
-            return fig,main_matrix_text,accessory_matrix_text
+            return fig, main_matrix_text, accessory_matrix_text
         else:
-            return fig,sub_df,_sub_df
+            return fig, sub_df, _sub_df
     else:
         return fig
 
