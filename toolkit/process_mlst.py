@@ -163,8 +163,8 @@ def redefine_mlst(mlst_df: pd.DataFrame, scheme, db=mlst_db):
         necessary_cols = list(mlst_df.columns[:mlst_df.columns.get_loc(may_dup_cols[0])])
         sub_df = mlst_df.loc[:,may_dup_cols].fillna('?')
         unique_cols = list(sub_df.sum(0).drop_duplicates().index)
-        new_mlst_df = mlst_df.loc[:,necessary_cols+unique_cols]
-        new_mlst_df.columns = necessary_cols + ['%s_ST.%s' % (scheme_source,_)
+        mlst_df = mlst_df.loc[:,necessary_cols+unique_cols]
+        mlst_df.columns = necessary_cols + ['%s_ST.%s' % (scheme_source,_)
                                                 for _ in range(1,len(unique_cols)+1)]
 
     return mlst_df

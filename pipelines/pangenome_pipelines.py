@@ -698,7 +698,7 @@ class mlst_task(prokka):
         from toolkit.process_mlst import parse_mlst
         ofiles = glob(self.output().path + '*')
         merged_df = parse_mlst(ofiles, sample_name=self.sample_name)
-        merged_df.to_csv(self.output().path, index=1)
+        merged_df.to_csv(self.output().path, index=1,index_label="sample ID")
         if self.dry_run:
             run_cmd("touch %s" % self.output().path, dry_run=False)
 
@@ -737,8 +737,11 @@ class mlst_summary(base_luigi_task):
         for s, df in mlst_df.items():
             df.to_csv(os.path.join(str(self.odir),
                                    "mlst_o",
-                                   "total_%s.csv" % s), index=1)
-        merged_df.to_csv(self.output().path, index=1,index_label='sample ID')
+                                   "total_%s.csv" % s),
+                      index=1, index_label="sample ID")
+        merged_df.to_csv(self.output().path,
+                         index=1,
+                         index_label='sample ID')
         if self.dry_run:
             run_cmd("touch %s" % self.output().path, dry_run=False)
 
