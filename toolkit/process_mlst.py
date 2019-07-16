@@ -3,7 +3,7 @@ import sys
 
 import pandas as pd
 from tqdm import tqdm
-
+from pandas.errors import EmptyDataError
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from pipelines.soft_db_path import mlst_db
 
@@ -54,6 +54,7 @@ def extract_gene(g_list):
 def construct_st(num_list, final=[], status=''):
     # input a row of info output by `extract_gene`
     """
+    recursive function for get ST which from different combination of genes
     st_list = [[('1', '')],
                [('3', '')],
                [('3', ''), ('189', '')],
@@ -77,14 +78,14 @@ def construct_st(num_list, final=[], status=''):
                               (['1', '3', '1', '3', '189', '2', '2', '96', '3'], ''),
                               (['1', '3', '1', '3', '189', '2', '2', '22', '3'], '')]
 
-                              st_list =  [[('40', '~')],
- [('52', '')],
- [('32', '~')],
- [('43', '~')],
- [('4', '')],
- [('278', '')],
- [('3', '?')]]
- construct_st(st_list) == (['40', '52', '32', '43', '4', '278', '3'], '~~~?')
+    st_list =  [[('40', '~')],
+                 [('52', '')],
+                 [('32', '~')],
+                 [('43', '~')],
+                 [('4', '')],
+                 [('278', '')],
+                 [('3', '?')]]
+    construct_st(st_list) == (['40', '52', '32', '43', '4', '278', '3'], '~~~?')
     :param st_list:
     :param final:
     :param status:
@@ -126,19 +127,28 @@ def format_ST_dict(sub_df):
 
 def redefine_mlst(mlst_df: pd.DataFrame, scheme, db=mlst_db):
     db_file = os.path.join(db, scheme, scheme + '.txt')
-    ST_df = pd.read_csv(db_file, sep='\t')
+    try:
+        ST_df = pd.read_csv(db_file, sep='\t')
+    except EmptyDataError:
+        return mlst_df
+    if mlst_df.shape[0] == 0:
+        return mlst_df
     for idx, val in tqdm(mlst_df.iterrows()):
         gene_cols = list(val[[_
                               for _ in val.index
                               if 'locus' in _.lower()]])
+        # get columns contain gene names
         gene_list, extract_st = extract_gene(gene_cols)
         st_list = construct_st(extract_st, [], '')
         st_list = [st_list] if type(st_list) == tuple else st_list
+
         sub_df = ST_df.loc[:, gene_list]
         sub_df.index = ST_df.loc[:, 'ST']
         ST_dict = format_ST_dict(sub_df)
+        # get mapping dict of ST
 
         scheme_source = gene_list[0].split('_')[0]
+        # Oxf or Pas... for abaumannii
         for count, st_s in enumerate(st_list):
             assert len(st_s[0]) == len(gene_list)
             ST = ST_dict.get(','.join(map(str, st_s[0])), '-')
@@ -147,17 +157,27 @@ def redefine_mlst(mlst_df: pd.DataFrame, scheme, db=mlst_db):
             else:
                 final_ST = 'ST%s' % ST
             mlst_df.loc[idx, '%s_ST.%s' % (scheme_source, (count + 1))] = final_ST
+    # remove duplicated columns
+    may_dup_cols = [_ for _ in mlst_df.columns if '_ST.' in _]
+    if may_dup_cols:
+        necessary_cols = list(mlst_df.columns[:mlst_df.columns.get_loc(may_dup_cols[0])])
+        sub_df = mlst_df.loc[:,may_dup_cols].fillna('?')
+        unique_cols = list(sub_df.sum(0).drop_duplicates().index)
+        new_mlst_df = mlst_df.loc[:,necessary_cols+unique_cols]
+        new_mlst_df.columns = necessary_cols + ['%s_ST.%s' % (scheme_source,_)
+                                                for _ in range(1,len(unique_cols)+1)]
 
     return mlst_df
 
 
 def main(mlst_df):
     output_mlst = {}
-
+    # init a empty dict
     schemes = set(mlst_df.Scheme)
     scheme_df_dict = {}
     for scheme in schemes:
         scheme_df_dict[scheme] = mlst_df.loc[mlst_df.Scheme == scheme, :]
+    # get all used scheme & init a dict which contain multiple df corresponding scheme
 
     scheme_df_dict = {k: redefine_mlst(_df, scheme=k)
                       for k, _df in scheme_df_dict.items()}

@@ -9,11 +9,12 @@ from toolkit.utils import valid_path
 from pipelines import constant_str as constant
 import click
 
+
 @click.command()
-@click.option("-r","--roary_d","roary_dir")
-@click.option("-o","--output_d","output_dir")
-@click.option("-p","--prokka_d","prokka_o",default=None,required=False)
-@click.option("-a","--abricate_f","abricate_file",default=None,required=False)
+@click.option("-r", "--roary_d", "roary_dir")
+@click.option("-o", "--output_d", "output_dir")
+@click.option("-p", "--prokka_d", "prokka_o", default=None, required=False)
+@click.option("-a", "--abricate_f", "abricate_file", default=None, required=False)
 def cli(roary_dir, output_dir, prokka_o, abricate_file):
     post_analysis(roary_dir,
                   output_dir,
@@ -46,6 +47,7 @@ def post_analysis(roary_dir, output_dir, prokka_o=None, abricate_file=None):
     # 3. summary into matrix
     # 4. summary statistic info
     # prepare the accessory obj
+    print("get all gff objects")
     locus2group, locus2annotate, sample2gff = get_accessory_obj(roary_dir,
                                                                 abricate_file,
                                                                 prokka_o)
@@ -85,11 +87,11 @@ def post_analysis(roary_dir, output_dir, prokka_o=None, abricate_file=None):
                 fea.id = annotated
     ###########
     # main part for generate multiple GFF files
-    print("generating the GFF files...")
+    print("generating new GFF files...")
     for ofile, source, name in zip(ofiles,
                                    summary_task_source,
                                    names):
-        print(source,name,ofile)
+        print(source, name, ofile)
         pth = ofile
 
         annotated_sample2gff_records = write_new_gff(pth,
@@ -127,9 +129,9 @@ def post_analysis(roary_dir, output_dir, prokka_o=None, abricate_file=None):
                                    filename), 'w') as f1:
                 GFF.write(list(annotated_sample2gff[sn].values()), f1)
         with open(os.path.join(output_dir, "%s_annotated_matrix.csv" % name), 'w') as f1:
-            samples2annotated_df.to_csv(f1, sep=',', index=1)
+            samples2annotated_df.to_csv(f1, sep=',', index=1, index_label="sample ID")
         with open(os.path.join(output_dir, "%s_statistic.csv" % name), 'w') as f1:
-            summary_df.to_csv(f1, sep=',', index=1)
+            summary_df.to_csv(f1, sep=',', index=1, index_label="sample ID")
 
     ############################################################
     # mlst
@@ -142,7 +144,7 @@ def post_analysis(roary_dir, output_dir, prokka_o=None, abricate_file=None):
     for scheme in type_ST:
         with open(os.path.join(output_dir,
                                "%s_mlst.csv" % scheme.replace('_ST', '')), 'w') as f1:
-            pandoo_df.loc[:, pandoo_df.columns.str.startswith(scheme)].to_csv(f1, index=1)
+            pandoo_df.loc[:, pandoo_df.columns.str.startswith(scheme)].to_csv(f1, index=1, index_label="sample ID")
     ############################################################
     # abricate
     if type(abricate_file) == str:
@@ -156,8 +158,8 @@ def post_analysis(roary_dir, output_dir, prokka_o=None, abricate_file=None):
     else:
         abricate_ofile = join(output_dir, 'locus2annotate.csv')
         abricate_ofile2 = join(output_dir, "samples2annotate.csv")
-        abricate_file.to_csv(abricate_ofile, index=1)
-        abricate_result.to_csv(abricate_ofile2, index=1)
+        abricate_file.to_csv(abricate_ofile, index=1, index_label="locus ID")
+        abricate_result.to_csv(abricate_ofile2, index=1, index_label="sample ID")
 
     abricate_gff_dir = os.path.join(output_dir,
                                     "annotated_gff_simplified")
@@ -166,6 +168,7 @@ def post_analysis(roary_dir, output_dir, prokka_o=None, abricate_file=None):
                                          "*",
                                          "*.gff"),
                             abricate_gff_dir))
+
 
 if __name__ == '__main__':
     cli()
