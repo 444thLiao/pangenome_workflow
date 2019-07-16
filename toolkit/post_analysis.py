@@ -10,10 +10,10 @@ from pipelines import constant_str as constant
 import click
 
 @click.command()
-@click.argument("-r","--roary_d","roary_dir")
-@click.argument("-o","--output_d","output_dir")
-@click.argument("-p","--prokka_d","prokka_o")
-@click.argument("-a","--abricate_f","abricate_file")
+@click.option("-r","--roary_d","roary_dir")
+@click.option("-o","--output_d","output_dir")
+@click.option("-p","--prokka_d","prokka_o",default=None,required=False)
+@click.option("-a","--abricate_f","abricate_file",default=None,required=False)
 def cli(roary_dir, output_dir, prokka_o, abricate_file):
     post_analysis(roary_dir,
                   output_dir,
