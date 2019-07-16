@@ -78,8 +78,6 @@ def get_abricate_df(prokka_dir,
                                                                 locus2annotate,
                                                                 annotate2db,
                                                                 rename_genes)
-    l2a_pth = os.path.join(odir, 'locus2annotate.csv')
-    locus2annotate_df.to_csv(l2a_pth, index=1)
     return locus2annotate_df,abricate_result
 
 
