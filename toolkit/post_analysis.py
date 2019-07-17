@@ -33,7 +33,7 @@ def post_analysis(roary_dir, output_dir, prokka_o=None, abricate_file=None):
     if prokka_o is None:
         prokka_o = join(root_output_dir, 'prokka_o')
     abricate_odir = join(root_output_dir, 'abricate_result')
-    abricate_result = pd.DataFrame()
+    samples2annotate = pd.DataFrame()
     if abricate_file is None:
         print("summarizing the abricate output")
         abricate_locus2annotate, samples2annotate = get_abricate_df(prokka_dir=prokka_o,
@@ -137,6 +137,9 @@ def post_analysis(roary_dir, output_dir, prokka_o=None, abricate_file=None):
         with open(os.path.join(output_dir, "%s_statistic.csv" % name), 'w') as f1:
             summary_df.to_csv(f1, sep=',', index=1, index_label="sample ID")
 
+    # used samples
+    used_samples_ID = list(samples2annotated_df.index)
+
     ############################################################
     # mlst
     mlst_ofile = join(summary_dir,
@@ -148,7 +151,9 @@ def post_analysis(roary_dir, output_dir, prokka_o=None, abricate_file=None):
     for scheme in type_ST:
         with open(os.path.join(output_dir,
                                "%s_mlst.csv" % scheme.replace('_ST', '')), 'w') as f1:
-            pandoo_df.loc[:, pandoo_df.columns.str.startswith(scheme)].to_csv(f1, index=1, index_label="sample ID")
+            _cache_df = pandoo_df.loc[used_samples_ID, pandoo_df.columns.str.startswith(scheme)]
+            _cache_df = _cache_df.dropna(axis=1, how='all')
+            _cache_df.to_csv(f1, index=1, index_label="sample ID")
     ############################################################
     # abricate
     if abricate_file is not None:
@@ -161,8 +166,14 @@ def post_analysis(roary_dir, output_dir, prokka_o=None, abricate_file=None):
     else:
         abricate_ofile = join(output_dir, 'locus2annotate.csv')
         abricate_ofile2 = join(output_dir, "samples2annotate.csv")
+
+        if len(used_samples_ID) != samples2annotate.shape[0]:
+            abricate_locus2annotate = abricate_locus2annotate.loc[abricate_locus2annotate.loc[:, 'sample'].str.isin(used_samples_ID), :]
+            samples2annotate = samples2annotate.loc[used_samples_ID, :]
+            samples2annotate = samples2annotate.loc[:, samples2annotate.sum(0) != 0]
+
         abricate_locus2annotate.to_csv(abricate_ofile, index=1, index_label="locus ID")
-        abricate_result.to_csv(abricate_ofile2, index=1, index_label="sample ID")
+        samples2annotate.to_csv(abricate_ofile2, index=1, index_label="sample ID")
 
     abricate_gff_dir = os.path.join(output_dir,
                                     "annotated_gff_simplified")

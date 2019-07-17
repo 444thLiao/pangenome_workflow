@@ -65,7 +65,9 @@ def write_new_gff(unify_regions_pth,
     # return a list of data
     # it will drop empty region annotated samples.
     unify_regions = pd.read_csv(unify_regions_pth, sep='\t', index_col=0, dtype=str)
+    # unify regions is for all samples processed
     new_sample2gff = copy.deepcopy(sample2gff)
+    # sample2gff is constructed by requested roary dir.(which may not all samples)
 
     for region_ID, vals in unify_regions.iterrows():
         region = vals["region"]
@@ -75,6 +77,8 @@ def write_new_gff(unify_regions_pth,
         start, end = map(int,
                          region.split(':')[1].split('-'))
 
+        if sample not in new_sample2gff:
+            continue
         empty_gff_obj = new_sample2gff[sample]
         record = empty_gff_obj[contig]
 
@@ -114,6 +118,8 @@ def cut_old_gff(unify_regions_pth,
     for sample in unify_regions["sample"].unique():
         sample = str(sample)
         sub_regions_df = unify_regions.loc[unify_regions["sample"] == sample, :]
+        if sample not in annotated_sample2gff:
+            continue
         annotated_contig2record = annotated_sample2gff[sample]
         for region_ID, vals in sub_regions_df.iterrows():
             region = vals["region"]
