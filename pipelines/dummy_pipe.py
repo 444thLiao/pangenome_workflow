@@ -1,7 +1,7 @@
 #################################################################################
 ####  it should sequential concat all tasks.
 ####  it could be taken as test module.
-####
+####  obsolete file (190716)
 #################################################################################
 from pipelines.tasks import *
 

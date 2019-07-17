@@ -157,6 +157,7 @@ def redefine_mlst(mlst_df: pd.DataFrame, scheme, db=mlst_db):
             else:
                 final_ST = 'ST%s' % ST
             mlst_df.loc[idx, '%s_ST.%s' % (scheme_source, (count + 1))] = final_ST
+
     # remove duplicated columns
     may_dup_cols = [_ for _ in mlst_df.columns if '_ST.' in _]
     if may_dup_cols:

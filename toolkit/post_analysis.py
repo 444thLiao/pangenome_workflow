@@ -8,6 +8,7 @@ from toolkit.process_region_annotated import *
 from toolkit.utils import valid_path
 from pipelines import constant_str as constant
 import click
+from tqdm import tqdm
 
 
 @click.command()
@@ -35,9 +36,12 @@ def post_analysis(roary_dir, output_dir, prokka_o=None, abricate_file=None):
     abricate_result = pd.DataFrame()
     if abricate_file is None:
         print("summarizing the abricate output")
-        abricate_file, abricate_result = get_abricate_df(prokka_dir=prokka_o,
-                                                         roary_dir=roary_dir,
-                                                         abricate_odir=abricate_odir)
+        abricate_locus2annotate, samples2annotate = get_abricate_df(prokka_dir=prokka_o,
+                                                                    roary_dir=roary_dir,
+                                                                    abricate_odir=abricate_odir)
+
+    else:
+        abricate_locus2annotate = pd.read_csv(abricate_file, index_col=0)
         # abricate_file = workflow_task.input()["abricate"].path
     valid_path(output_dir, check_odir=1)
     ############################################################
@@ -49,7 +53,7 @@ def post_analysis(roary_dir, output_dir, prokka_o=None, abricate_file=None):
     # prepare the accessory obj
     print("get all gff objects")
     locus2group, locus2annotate, sample2gff = get_accessory_obj(roary_dir,
-                                                                abricate_file,
+                                                                abricate_locus2annotate,
                                                                 prokka_o)
     # get locus annotation(abricate)/group(roary) from different files.
     # sample2gff contains three objs:
@@ -76,9 +80,9 @@ def post_analysis(roary_dir, output_dir, prokka_o=None, abricate_file=None):
                    'IS_summary.tab')
               ]
     annotated_sample2gff = copy.deepcopy(ori_sample2gff)
-    for record in [record
-                   for contig2record in annotated_sample2gff.values()
-                   for record in contig2record.values()]:
+    for record in tqdm([record
+                        for contig2record in annotated_sample2gff.values()
+                        for record in contig2record.values()]):
         for fea in record.features:
             if fea.type == 'CDS':
                 locus_id = fea.id
@@ -147,10 +151,9 @@ def post_analysis(roary_dir, output_dir, prokka_o=None, abricate_file=None):
             pandoo_df.loc[:, pandoo_df.columns.str.startswith(scheme)].to_csv(f1, index=1, index_label="sample ID")
     ############################################################
     # abricate
-    if type(abricate_file) == str:
-        abricate_ofile = abricate_file
-        abricate_dir = os.path.dirname(abricate_ofile)
-        os.system("cp %s %s" % (abricate_ofile,
+    if abricate_file is not None:
+        abricate_dir = os.path.dirname(abricate_file)
+        os.system("cp %s %s" % (abricate_file,
                                 output_dir))
         os.system("cp %s %s" % (os.path.join(abricate_dir,
                                              "samples2annotate.csv"),
@@ -158,7 +161,7 @@ def post_analysis(roary_dir, output_dir, prokka_o=None, abricate_file=None):
     else:
         abricate_ofile = join(output_dir, 'locus2annotate.csv')
         abricate_ofile2 = join(output_dir, "samples2annotate.csv")
-        abricate_file.to_csv(abricate_ofile, index=1, index_label="locus ID")
+        abricate_locus2annotate.to_csv(abricate_ofile, index=1, index_label="locus ID")
         abricate_result.to_csv(abricate_ofile2, index=1, index_label="sample ID")
 
     abricate_gff_dir = os.path.join(output_dir,

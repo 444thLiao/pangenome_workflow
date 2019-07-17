@@ -4,7 +4,7 @@ import sys
 from collections import defaultdict
 from glob import glob
 from multiprocessing import cpu_count
-
+from os.path import join,basename,dirname
 import pandas as pd
 from BCBio import GFF
 from Bio import SeqIO
@@ -57,21 +57,30 @@ def run_abricate(prokka_dir,
     return samples2locus
 
 
-def get_sample2locus(prokka_dir):
+def get_sample2locus(prokka_dir,subset_sid=[]):
     samples2locus = defaultdict(list)
-    for ffn_pth in tqdm(glob(os.path.join(prokka_dir,
-                                          "*",
-                                          '*.ffn'))):
+    files = glob(os.path.join(prokka_dir,"*",'*.ffn'))
+    if not subset_sid:
+        files = [_
+                 for _ in files
+                 if basename(dirname(_)) in subset_sid]
+
+    for ffn_pth in tqdm(files):
         # ffn has been separated each locus into different record.
-        sample_name = os.path.basename(os.path.dirname(ffn_pth))
+        sample_name = basename(dirname(ffn_pth))
         samples2locus[sample_name] = [_.id
                                       for _ in SeqIO.parse(ffn_pth, format='fasta')]
     return samples2locus
 
 def get_abricate_df(prokka_dir,
                     abricate_odir,
-                    roary_dir):
-    samples2locus = get_sample2locus(prokka_dir)
+                    roary_dir,
+                    subset_sid=[]):
+    if not subset_sid:
+        subset_sid = list(pd.read_csv(join(roary_dir,"gene_presence_absence.Rtab"),
+                                 sep='\t',
+                                 index_col=0).columns)
+    samples2locus = get_sample2locus(prokka_dir,subset_sid=subset_sid)
     locus2annotate, annotate2db = summary_abricate(abricate_odir)
     rename_genes = refine_abricate_output(locus2annotate, roary_dir)
     locus2annotate_df, abricate_result = output_abricate_result(samples2locus,

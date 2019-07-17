@@ -595,6 +595,7 @@ def run_mlst(assembly,
 ############################################################
 
 def post_analysis(workflow_task):
+    # obsolete function
     # only ofr workflow post analysis
     if workflow_task.dry_run:
         print("Dry run complete without post-analysis function.")
