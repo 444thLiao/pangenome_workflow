@@ -57,10 +57,10 @@ def run_abricate(prokka_dir,
     return samples2locus
 
 
-def get_sample2locus(prokka_dir,subset_sid=[]):
+def get_sample2locus(prokka_dir,subset_sid=None):
     samples2locus = defaultdict(list)
     files = glob(os.path.join(prokka_dir,"*",'*.ffn'))
-    if not subset_sid:
+    if subset_sid is not None:
         files = [_
                  for _ in files
                  if basename(dirname(_)) in subset_sid]
@@ -75,8 +75,8 @@ def get_sample2locus(prokka_dir,subset_sid=[]):
 def get_abricate_df(prokka_dir,
                     abricate_odir,
                     roary_dir,
-                    subset_sid=[]):
-    if not subset_sid:
+                    subset_sid=None):
+    if subset_sid is None:
         subset_sid = list(pd.read_csv(join(roary_dir,"gene_presence_absence.Rtab"),
                                  sep='\t',
                                  index_col=0).columns)
