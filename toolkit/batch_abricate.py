@@ -81,7 +81,7 @@ def get_abricate_df(prokka_dir,
                                  sep='\t',
                                  index_col=0).columns)
     samples2locus = get_sample2locus(prokka_dir,subset_sid=subset_sid)
-    locus2annotate, annotate2db = summary_abricate(abricate_odir)
+    locus2annotate, annotate2db = summary_abricate(abricate_odir,subset_sid=subset_sid)
     rename_genes = refine_abricate_output(locus2annotate, roary_dir)
     locus2annotate_df, abricate_result = output_abricate_result(samples2locus,
                                                                 locus2annotate,
@@ -104,13 +104,18 @@ def gene_process(gene):
     return gene
 
 
-def summary_abricate(odir):
+def summary_abricate(odir,subset_sid=None):
     """summary output tab, and output locus2annotate and annotate2db"""
     locus2annotate = {}
     annotate2db = {}
-    for tab in tqdm(glob(os.path.join(odir,
+    files = glob(os.path.join(odir,
                                       '*',
-                                      "abricate_*.tab"))):
+                                      "abricate_*.tab"))
+    if subset_sid is not None:
+        files = [_
+                 for _ in files
+                 if basename(dirname(_)) in subset_sid]
+    for tab in tqdm(files):
         try:
             df = pd.read_csv(tab, sep='\t')
         except EmptyDataError:
