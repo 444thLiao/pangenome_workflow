@@ -168,7 +168,7 @@ def post_analysis(roary_dir, output_dir, prokka_o=None, abricate_file=None):
         abricate_ofile2 = join(output_dir, "samples2annotate.csv")
 
         if len(used_samples_ID) != samples2annotate.shape[0]:
-            abricate_locus2annotate = abricate_locus2annotate.loc[abricate_locus2annotate.loc[:, 'sample'].str.isin(used_samples_ID), :]
+            abricate_locus2annotate = abricate_locus2annotate.loc[abricate_locus2annotate.loc[:, 'sample'].isin(used_samples_ID), :]
             samples2annotate = samples2annotate.loc[used_samples_ID, :]
             samples2annotate = samples2annotate.loc[:, samples2annotate.sum(0) != 0]
 
