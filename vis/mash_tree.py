@@ -18,7 +18,7 @@ def getNewick(node, newick, parentdist, leaf_names):
 
 def dist2newick(dist_path):
     dis = pd.read_csv(dist_path, sep=',', index_col=0)
-    schlink = sch.linkage(ssd.squareform(dis) )
+    schlink = sch.linkage(ssd.squareform(dis))
     tree = sch.to_tree(schlink, False)
 
     newick_text = getNewick(tree, "", tree.dist, dis.index)

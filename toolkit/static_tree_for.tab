@@ -1,0 +1,4 @@
+sample ID	R1	R2	ref	gff
+s1	test_data/s1_1.fq.gz	test_data/s1_2.fq.gz	reference/nosocomialis NIPH 2119.fna	reference/nosocomialis NIPH 2119.gff
+s2	test_data/s1_1.fq.gz	test_data/s1_2.fq.gz	reference/nosocomialis NIPH 2119.fna	reference/nosocomialis NIPH 2119.gff
+s3	test_data/s1_1.fq.gz	test_data/s1_2.fq.gz	reference/nosocomialis NIPH 2119.fna	reference/nosocomialis NIPH 2119.gff

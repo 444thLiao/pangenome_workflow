@@ -315,7 +315,7 @@ class prokka(base_luigi_task):
     Could used for inheritance
     """
     R1 = luigi.Parameter()
-    R2 = luigi.Parameter()
+    R2 = luigi.Parameter(default='')
     sample_name = luigi.Parameter()
 
     def requires(self):
@@ -869,6 +869,7 @@ class species_annotated_summary(base_luigi_task):
                                               **kwargs)
                                    for sn, _R1, _R2 in self.PE_data]
         required_tasks["mash"] += [mash_tasks(R1=_R1,
+                                              R2='',
                                               sample_name=sn,
                                               **kwargs)
                                    for sn, _R1 in self.SE_data]
