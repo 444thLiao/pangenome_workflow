@@ -2,6 +2,10 @@
 
 For collecting all required tasks into a single pipelines, this project had been started.
 
+![pipelines overview](./pipelines.png)
+
+red arrow means: combine with multiple down stream tasks.
+
 ## installation
 
 This is a project composed with a lot of other tools or software. Some software also contain its own database. 
