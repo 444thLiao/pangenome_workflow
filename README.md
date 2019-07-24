@@ -1,8 +1,10 @@
 # Pangenome analysis workflow
 
-For collecting all required tasks into a single pipelines, this project had been started.
+For collecting all required tasks into a single pipelines, this project had been implemented.
 
-![pipelines overview](./pipelines.png)
+Dependency Graph of this workflow.
+
+![pipelines dependency overview](./pipelines.png)
 
 red arrow means: combine with multiple down stream tasks.
 
@@ -21,7 +23,7 @@ Here is a list of necessary software
 * [shovill](https://github.com/tseemann/shovill)
 * [prokka](https://github.com/tseemann/prokka#installation)
 * [fasttree](http://www.microbesonline.org/fasttree/)
-* [ISEscan](https://github.com/xiezhq/ISEScan)
+* [ISEscan](https://github.com/444thLiao/ISEScan/tree/test)
 * [abricate](https://github.com/tseemann/abricate)
 * [Spades](http://cab.spbu.ru/software/spades/)
 * [mlst](https://github.com/tseemann/mlst)
@@ -75,6 +77,19 @@ Inside this `data_input.tab`, you could append more columns besides the necessar
 Besides that, if you don't know which `ref` or which `gff` you need to choose, you could just left blank and it will pass `quast` step.
 
 These columns only used to perform quality assessment for now.
+
+## about post analysis
+For convenient visualization and assessment for the output of pipelines, a script called `toolkit/post_analysis.py` was implemented. Because it need to use the pan-genome analysis output, the output directory of **roary** is necessary.
+
+```bash
+python3 toolkit/post_analysis.py run -r output_dir/all_roary_o -o output_dir/new_summary_output_dir
+```
+
+> * output_dir is the directory you indicate when running the `main.py`
+> * `-o` is the directory where you want to stodge the output files
+
+for advanced user, you could also use `-p` & `-a` to indicate the path of prokka or the path of abricate_file. Normally, `abricate_file` will recalculated with the abricate ouput directory at  **output_dir** otherwise you could simple use the file located at `output_dir/abricate_result/samples2annotate.csv`
+
 
 ## Q&A
 
