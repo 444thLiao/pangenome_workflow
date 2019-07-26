@@ -400,7 +400,7 @@ def run_seqtk_contig(infile, outfile, isolate,
     metrics[pfx + 'lt1K'] = len([_ for _ in contig_lengths if _ > 1000])
     metrics[pfx + 'lt5K'] = len([_ for _ in contig_lengths if _ > 5000])
     metrics[pfx + 'ok'] = bps - nns
-
+    metrics[pfx + "GC %"] = df1.loc[:, ['#C', '#G', ]].sum(axis=1).div(df1.loc[:, ['#A', '#C', '#G', '#T']].sum(axis=1), axis=1)
     metrics['sotwareSeqTKversion_comp'] = seqtk_version()
     seqtk_comp_df = pd.DataFrame.from_dict({isolate: metrics},
                                            orient='index')
@@ -600,7 +600,7 @@ def post_analysis(workflow_task):
     if workflow_task.dry_run:
         print("Dry run complete without post-analysis function.")
         return
-    roary_dir = os.path.join(workflow_task.odir,'all_roary_o')
+    roary_dir = os.path.join(workflow_task.odir, 'all_roary_o')
     # althought we have multiple roary output directory
     # it only use the all one to perform post analysis
     prokka_o = os.path.join(workflow_task.odir,

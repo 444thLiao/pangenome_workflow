@@ -15,12 +15,12 @@ def create_heatmap():
 
 import pandas as pd
 
-left_dist = pd.read_csv('/home/liaoth/data2/project/shenzhen_Acinetobacter/pipelines_190619/summary_output/pairwise_mash/pairwise_mash.dist',
+left_dist = pd.read_csv('/home/liaoth/data2/project/shenzhen_Acinetobacter/pipelines_output_total_324/summary_output/pairwise_mash/pairwise_mash.dist',
                         index_col=0)
-main_matrix = pd.read_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/pipelines_190619/all_roary_o/gene_presence_absence.Rtab",
+main_matrix = pd.read_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/pipelines_output_total_324/all_roary_o/gene_presence_absence.Rtab",
                           sep='\t',
                           index_col=0).T
-accessory_matrix = pd.read_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/pipelines_190619/summary_all_roary_o/samples2annotate.csv",
+accessory_matrix = pd.read_csv("/home/liaoth/data2/project/shenzhen_Acinetobacter/pipelines_output_total_324/summary_all_roary_o/samples2annotate.csv",
                                index_col=0)
 create_heatmap(left_dist,
                main_matrix,
@@ -82,6 +82,7 @@ def create_heatmap(left_dist,
         reversescale=True,
         showscale=False
     )
+    fig.layout.xaxis4.ticktext = heatmap.x
     if up_dist is not None:
         heatmap['x'] = up_dendro.layout.xaxis.tickvals
     heatmap['y'] = side_dendro.layout.yaxis.tickvals
@@ -107,43 +108,51 @@ def create_heatmap(left_dist,
         )
         heatmap['y'] = side_dendro.layout.yaxis.tickvals
         fig.append_trace(heatmap, 2, 2)
+        fig.layout.xaxis3.ticktext = heatmap.x
     ############################################################
 
     if accessory_matrix is not None:
-        fig.layout.xaxis1.domain = [0, 0.05]
-        fig.layout.xaxis2.domain = [0.05, 0.1]
-        fig.layout.xaxis3.domain = [0.1, 1]
+        fig.layout.xaxis2.domain = [0, 0.049]
+        fig.layout.xaxis3.domain = [0.051, 0.1]
+        fig.layout.xaxis4.domain = [0.1, 1]
     else:
-        fig.layout.xaxis1.domain = [0, 0.17]
-        fig.layout.xaxis2.domain = [0.0, 0.0]
-        fig.layout.xaxis3.domain = [0.2, 1]
+        fig.layout.xaxis2.domain = [0, 0.17]
+        fig.layout.xaxis3.domain = [0.0, 0.0]
+        fig.layout.xaxis4.domain = [0.2, 1]
     if up_dist is not None:
         fig.layout.yaxis1.domain = [0.9, 1]
         fig.layout.yaxis2.domain = [0.0, 0.9]
+        fig.layout.yaxis3.domain = [0.0, 0.9]
+        fig.layout.yaxis4.domain = [0.0, 0.9]
     else:
         fig.layout.yaxis2.domain = [0.0, 0]
         fig.layout.yaxis1.domain = [0.0, 1]
+        fig.layout.yaxis3.domain = [0.0, 1]
+        fig.layout.yaxis4.domain = [0.0, 1]
+
     fig.layout.yaxis2.ticktext = side_dendro.layout.yaxis.ticktext
     fig.layout.yaxis2.tickvals = side_dendro.layout.yaxis.tickvals
+
+
+
+
+    fig.layout.xaxis4.tickvals = side_dendro.layout.yaxis.tickvals
     if up_dist is not None:
-        fig.layout.xaxis3.ticktext = up_dendro.layout.xaxis.ticktext
-        fig.layout.xaxis3.tickvals = up_dendro.layout.xaxis.tickvals
+        fig.layout.xaxis4.ticktext = up_dendro.layout.xaxis.ticktext
+        fig.layout.xaxis4.tickvals = up_dendro.layout.xaxis.tickvals
     # fig.layout.xaxis.anchor = 'x2'
     # fig.layout.margin.b = 250
     fig.layout.width = main_matrix.shape[1] * 13 if width is None else width
     fig.layout.height = height
     fig.layout.hovermode = 'closest'
-    fig.layout.xaxis1.zeroline = fig.layout.xaxis2.zeroline = fig.layout.xaxis3.zeroline = False
+    fig.layout.xaxis2.zeroline = fig.layout.xaxis2.zeroline = fig.layout.xaxis3.zeroline = False
     fig.layout.yaxis1.zeroline = fig.layout.yaxis2.zeroline = False
-    fig.layout.xaxis1.showgrid = False
+    fig.layout.xaxis2.showgrid = False
     fig.layout.yaxis2.showgrid = False
-    fig.layout.xaxis1.showgrid = fig.layout.xaxis2.showgrid = fig.layout.xaxis3.showgrid = False
+    fig.layout.xaxis2.showgrid = fig.layout.xaxis3.showgrid = fig.layout.xaxis4.showgrid = False
     fig.layout.yaxis1.showgrid = False
-    fig.layout.xaxis1.showticklabels = False
-    fig.layout.xaxis3.showticklabels = False
-
-    fig.layout.xaxis1.visible = False
-    fig.layout.xaxis3.visible = False
+    fig.layout.xaxis2.showticklabels = False
+    fig.layout.xaxis4.showticklabels = False
     fig.layout.xaxis2.visible = False
 
     fig.layout.yaxis1.showticklabels = False
