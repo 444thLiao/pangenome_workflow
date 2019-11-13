@@ -1,9 +1,9 @@
 import sys
 import time
-from os.path import dirname
+from os.path import *
 
 import click
-
+__file__ = abspath(realpath(__file__))
 sys.path.insert(0, dirname(dirname(__file__)))
 from pipelines import *
 
@@ -149,7 +149,7 @@ def recovery(indir, name=None):
 @cli.command(help="analysis with test dataset, need to assign a output directory.")
 @click.option("-o", "--odir", help="output directory for testing ...")
 def testdata(odir):
-    project_root_path = dirname(dirname(__file__))
+    project_root_path = dirname(dirname())
     run_cmd(
         f"python3 {project_root_path}/pipelines/main.py run -- workflow --tab {project_root_path}/pipelines/test/test_input.tab --odir {odir} --workers 2 --log-path {odir}/cmd_log.txt",
         dry_run=False)
@@ -168,32 +168,9 @@ def check(update):
             print("\033[1;31;40m {:<10}: no requested files".format(s))
 
 
-class workflow(luigi.Task):
-    tab = luigi.Parameter()
-    odir = luigi.Parameter()
-    dry_run = luigi.BoolParameter(default=False)
-    log_path = luigi.Parameter(default=None)
-    thread = luigi.IntParameter(default=constant.total_thread)
-
-    def output(self):
-        return luigi.LocalTarget(os.path.join(str(self.odir),
-                                              "pipelines_summary"))
-
-    def requires(self):
-        inputdata = fileparser(self.tab)
-        # it will validate the input df
-        require_tasks = {}
-        pairreads = inputdata.get_PE_info()
-        singlereads = inputdata.get_SE_info()
-        other_info = inputdata.get_full_PE_info()
-        # other_info include the gff info and ref_fna info.
-        ############################################################
-        valid_path(self.odir, check_odir=True)
-        unify_kwargs = dict(odir=self.odir,
-                            dry_run=self.dry_run,
-                            log_path=self.log_path,
-                            thread=self.thread,
-                            PE_data=pairreads, )
+def preset_collect(set_name,unify_kwargs,singlereads):
+    require_tasks = {}
+    if set_name == 'wgs':
 
         require_tasks["fastqc_before"] = multiqc(status='before',
                                                  **unify_kwargs
@@ -205,14 +182,17 @@ class workflow(luigi.Task):
         #                                         other_info=other_info,
         #                                         **unify_kwargs
         #                                         )
+        require_tasks["species_annotated"] = species_annotated_summary(SE_data=singlereads,
+                                                                       **unify_kwargs)
+        require_tasks["seqtk"] = seqtk_summary(SE_data=singlereads,
+                                               **unify_kwargs)
+
+    elif set_name == 'full':
         require_tasks["abricate"] = abricate(SE_data=singlereads,
                                              **unify_kwargs)
         require_tasks["pre_roary"] = pre_roary(SE_data=singlereads,
                                                **unify_kwargs)
-        require_tasks["seqtk"] = seqtk_summary(SE_data=singlereads,
-                                               **unify_kwargs)
-        require_tasks["species_annotated"] = species_annotated_summary(SE_data=singlereads,
-                                                                       **unify_kwargs)
+
         require_tasks["ISEscan_summary"] = ISEscan_summary(SE_data=singlereads,
                                                            **unify_kwargs)
         require_tasks["mlst_summary"] = mlst_summary(SE_data=singlereads,
@@ -220,6 +200,37 @@ class workflow(luigi.Task):
         require_tasks["detect_plasmid"] = detect_plasmid(**unify_kwargs)
         require_tasks["detect_prophage"] = phigaro_summary(SE_data=singlereads,
                                                            **unify_kwargs)
+    return require_tasks
+
+class workflow(luigi.Task):
+    tab = luigi.Parameter()
+    odir = luigi.Parameter()
+    dry_run = luigi.BoolParameter(default=False)
+    log_path = luigi.Parameter(default=None)
+    thread = luigi.IntParameter(default=constant.total_thread)
+    preset = luigi.Parameter(default='wgs')
+
+    def output(self):
+        return luigi.LocalTarget(os.path.join(str(self.odir),
+                                              "pipelines_summary"))
+
+    def requires(self):
+        inputdata = fileparser(self.tab)
+        # it will validate the input df
+        pairreads = inputdata.get_PE_info()
+        singlereads = inputdata.get_SE_info()
+        other_info = inputdata.get_full_PE_info()
+        # other_info include the gff info and ref_fna info.
+        ############################################################
+        valid_path(self.odir, check_odir=True)
+        unify_kwargs = dict(odir=self.odir,
+                            dry_run=self.dry_run,
+                            log_path=self.log_path,
+                            thread=self.thread,
+                            PE_data=pairreads, )
+        require_tasks = preset_collect(self.preset,
+                                       unify_kwargs,
+                                       singlereads)
         return require_tasks
 
     def run(self):

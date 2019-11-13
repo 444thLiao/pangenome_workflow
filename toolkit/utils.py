@@ -32,7 +32,7 @@ def run_cmd(cmd, dry_run=False, log_file=None,get_output=False, **kwargs):
         if not get_output:
             check_call(cmd,
                        shell=True,
-                       executable="/usr/bin/zsh",
+                       executable=os.popen('which zsh').read().strip('\n'),
                        stdout=outstream,
                        stderr=outstream,
                        **kwargs)

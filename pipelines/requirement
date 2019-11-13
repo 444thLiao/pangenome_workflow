@@ -13,5 +13,5 @@ cpanm -i List::MoreUtils
 cpanm -i Bio::Perl
 
 
-# fastqc need to install otherwise it will not ouput html
+# fastqc need to install otherwise it will not output html
 # cd-hit need to install otherwise it will not find `cd-hit-est` in PATH
