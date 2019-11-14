@@ -149,9 +149,9 @@ def recovery(indir, name=None):
 @cli.command(help="analysis with test dataset, need to assign a output directory.")
 @click.option("-o", "--odir", help="output directory for testing ...")
 def testdata(odir):
-    project_root_path = dirname(dirname())
+    project_root_path = dirname(dirname(__file__))
     run_cmd(
-        f"python3 {project_root_path}/pipelines/main.py run -- workflow --tab {project_root_path}/pipelines/test/test_input.tab --odir {odir} --workers 2 --log-path {odir}/cmd_log.txt",
+        f"python3 {project_root_path}/pipelines/main.py run -- workflow --tab {project_root_path}/pipelines/test/test_input.tab --odir {odir} --workers 2 --log-path {odir}/cmd_log.txt --local-scheduler",
         dry_run=False)
 
 
@@ -186,12 +186,12 @@ def preset_collect(set_name,unify_kwargs,singlereads):
                                                                        **unify_kwargs)
         require_tasks["seqtk"] = seqtk_summary(SE_data=singlereads,
                                                **unify_kwargs)
-
+        require_tasks["pre_roary"] = pre_roary(SE_data=singlereads,
+                                               **unify_kwargs)
     elif set_name == 'full':
         require_tasks["abricate"] = abricate(SE_data=singlereads,
                                              **unify_kwargs)
-        require_tasks["pre_roary"] = pre_roary(SE_data=singlereads,
-                                               **unify_kwargs)
+
 
         require_tasks["ISEscan_summary"] = ISEscan_summary(SE_data=singlereads,
                                                            **unify_kwargs)
