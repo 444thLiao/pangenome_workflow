@@ -297,7 +297,7 @@ class shovill(base_luigi_task):
         run_shovill(R1=self.input()[0].path,
                     R2=self.input()[1].path,
                     odir=os.path.dirname(self.output().path),
-                    thread=self.thread - 1,  # todo: determine the thread
+                    thread=self.thread-1,  # todo: determine the thread
                     ram=constant.ram_shovill,  # todo
                     spades_extra_options=spades_extra_options,
                     extra_option=extra_option,
