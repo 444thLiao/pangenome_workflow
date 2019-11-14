@@ -55,7 +55,8 @@ class fastqc(base_luigi_task):
         else:
             raise Exception
         # ofiles is a list of ouput of R1 & R2
-        return [luigi.LocalTarget(os.path.join(odir, f)) for f in ofiles]
+        return [luigi.LocalTarget(os.path.join(odir, f))
+                for f in ofiles]
 
     def run(self):
         if self.status == 'before':
