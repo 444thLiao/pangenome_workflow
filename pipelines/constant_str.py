@@ -14,7 +14,7 @@ fastqc_cmd = "{exe_path} {in_files} -t 2 -o {odir} --quiet"
 multiqc_cmd = "{exe_path} {indir} --outdir {odir} --filename {fn} --force -q {extra_str}"
 trimmomatic_cmd = """java -jar {exe_path} PE -threads {threads} {R1} {R2} -trimlog {log} {clean_r1} {unpaired_r1} {clean_r2} {unpaired_r2} {params}"""
 
-shovill_cmd = """{exe_path} --outdir {odir} --ram {ram} --R1 {R1} --R2 {R2} --depth {depth} --cpus {thread} --minlen 500 --force -tmpdir """
+shovill_cmd = """{exe_path} --outdir {odir} --ram {ram} --R1 {R1} --R2 {R2} --depth {depth} --cpus {thread} --minlen 500 --force"""
 # force otherwise it will exit because of pre-created the directory.
 prokka_cmd = """{exe_path} {infile} --outdir {odir} --prefix {sn} --locustag {sn} --force --quiet"""
 roary_cmd = "rm -r {odir}* ;{exe_path} -r -v -e -g 100000 --mafft -p {thread} -f {odir} {gff_pattern} "
@@ -43,7 +43,7 @@ summary_dir = "summary_output"
 from multiprocessing import cpu_count
 import psutil
 
-total_thread = int(cpu_count())//3
+total_thread = 30
 available_ram = int(psutil.virtual_memory().available / (1024 ** 3))
 
 
@@ -52,7 +52,7 @@ available_ram = int(psutil.virtual_memory().available / (1024 ** 3))
 mincov_abricate = 80
 # p_quast = int(total_thread-1)
 # p_shovill = int(total_thread-1)
-ram_shovill = int(available_ram//3)
+ram_shovill = 40
 # p_roary = int(total_thread-1)
 # p_pandoo = int(total_thread-1)
 # p_phigaro = int(total_thread - 1)
