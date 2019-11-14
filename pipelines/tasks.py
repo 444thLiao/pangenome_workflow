@@ -400,7 +400,7 @@ def run_seqtk_contig(infile, outfile, isolate,
     metrics[pfx + 'lt1K'] = len([_ for _ in contig_lengths if _ > 1000])
     metrics[pfx + 'lt5K'] = len([_ for _ in contig_lengths if _ > 5000])
     metrics[pfx + 'ok'] = bps - nns
-    metrics[pfx + "GC %"] = df1.loc[:, ['#C', '#G', ]].sum(axis=1).div(df1.loc[:, ['#A', '#C', '#G', '#T']].sum(axis=1))
+    metrics[pfx + "GC %"] = df1.loc[:, ['#C', '#G', ]].sum(axis=1).div(df1.loc[:, ['#A', '#C', '#G', '#T']].sum(axis=1)).mean()
     metrics['sotwareSeqTKversion_comp'] = seqtk_version()
     seqtk_comp_df = pd.DataFrame.from_dict({isolate: metrics},
                                            orient='index')
