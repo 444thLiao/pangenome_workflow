@@ -1,3 +1,8 @@
+"""
+This mainly for implemented a table which assigned by jinjin tao
+it combined 16s annotation result, shovill log, checkM result.
+"""
+
 from subprocess import check_call
 from glob import glob
 from os.path import *

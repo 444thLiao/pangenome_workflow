@@ -1,3 +1,9 @@
+"""
+This is a script for modifying the output of prokka into a designed proteins sequence.
+This should use `extract 16S.py` first and perform `16s annotation` first.
+extract 16S.py is in the same directory
+16s annotation is in the `script/EZbiocloudmatch.py`
+"""
 from Bio import SeqIO
 from glob import glob
 from os.path import *
