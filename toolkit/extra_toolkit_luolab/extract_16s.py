@@ -31,12 +31,18 @@ for f in tqdm(glob(join(indir,'*','*.gbk'))):
                 _record.id = _locus_tag[0]
                 name2_rrna[name].append(_record)
             elif len(rrna_16S) > 1:
+                for _16s in rrna_16S:
+                    _locus_tag = _16s.qualifiers['locus_tag']
+                    _record = _16s.extract(r)
+                    _record.description = _record.id = _record.name
+                    _record.id = _locus_tag[0]
+                    name2_rrna[name].append(_record)
                 print('multiple 16s in ', name)
-
     if name2_rrna.get(name) is None:
         print('no 16s in ',name)
 
-ofile = '/home-user/thliao/script/EzbioCloudMatcher/seq'
+
+ofile = '/home-user/thliao/data/jjtao_20191113/16S.fasta'
 records = [_ for k,v in name2_rrna.items() for _ in v]
 with open(ofile,'w') as f1:
     SeqIO.write(records,f1,format='fasta-2line')

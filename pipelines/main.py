@@ -188,7 +188,11 @@ def preset_collect(set_name,unify_kwargs,singlereads):
                                                **unify_kwargs)
         require_tasks["pre_roary"] = pre_roary(SE_data=singlereads,
                                                **unify_kwargs)
-    elif set_name == 'full':
+        # todo: add checkM module after the new version of python3(12.1)
+
+        #require_tasks['checkM'] =
+
+    if set_name == 'full':
         require_tasks["abricate"] = abricate(SE_data=singlereads,
                                              **unify_kwargs)
 
