@@ -66,6 +66,19 @@ Here describe a little bit about these params. For more detailed, you should che
 * `--thread`: it could control how many thread could be used at each task.
 
 
+## preset scheme
+For most people, some modules were redunctant. So I implement a preset param for modify the module it used. 
+For now, it only contain two kinds of scheme. 
+1. full
+2. wgs
+
+you could use it by pass params like ` -preset wgs ` following the original command.
+The default scheme is wgs (it only perform assembly and prokka annotation, and it will stop.)
+
+```bash
+python3 pipelines/main.py run -- workflow --tab data_input.tab --odir output_dir --workers 2 --log-path output_dir/cmd_log.txt -preset wgs
+```
+
 ## about the `data_input.tab`
 
 Please following the template file `toolkit/data_input.template`, new **data_input.tab** should contains all its header. 
