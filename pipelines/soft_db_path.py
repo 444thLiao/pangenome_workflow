@@ -43,7 +43,7 @@ mash_path = "/tools/mash-Linux64-v2.1.1/mash"
 abricate_db = "/tools/abricate/db/"
 
 ariba_db = "/home/db_public/ariba_db"
-ariba_db_list = ["CARD", "megares", "plasmidfinder", "resfinder", "srst2_argannot", "vfdb_full", "virulencefinder"]
+ariba_db_list = ["CARD", "megares", "plasmidfinder", "resfinder", "srst2_argannot", "virulencefinder"]
 ariba_str = str({k: "{db}/{name}".format(db=ariba_db, name=k.lower()) for k in ariba_db_list})
 
 mlst_db = '/tools/mlst/db/pubmlst/'

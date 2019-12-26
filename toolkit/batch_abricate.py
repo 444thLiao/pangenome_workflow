@@ -31,7 +31,7 @@ def run_abricate(prokka_dir,
                                           '*.ffn'))):
         # ffn has been separated each locus into different record.
         sample_name = os.path.basename(os.path.dirname(ffn_pth))
-        for db in ['card', 'argannot', 'ncbi', 'vfdb', 'vfdb_full', 'resfinder', 'plasmidfinder', 'victors']:
+        for db in ['card', 'argannot', 'ncbi', 'vfdb', 'resfinder', 'plasmidfinder', 'victors']:
             cmd = "{exe_path} {infile} --threads {thread} --db {db} --mincov {mincov} --quiet > {ofile}"
             ofile = os.path.join(odir,
                                  sample_name,
@@ -252,7 +252,7 @@ if __name__ == '__main__':
             record.annotations['sequence-region'] = "%s %s %s" % (record.id, 1, len(record))
         prepare_dict[sn] = (gff_db, gff_obj)
     res_db = ["card", "ncbi", "resfinder", "argannot"]
-    vf_db = ["vfdb_full", "vfdb", "victors"]
+    vf_db = ["vfdb", "victors"]
     for locus, vals in locus2annotate_df.iterrows():
         sn = str(vals["sample"])
         gff_db, gff_obj = prepare_dict[sn]
