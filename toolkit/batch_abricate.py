@@ -211,9 +211,11 @@ if __name__ == '__main__':
     indir = os.path.abspath(args.indir)
     if args.roary_dir:
         roary_dir = os.path.abspath(args.roary_dir)
+        valid_path([indir, roary_dir], check_dir=True)
+    else:
+        valid_path([indir], check_dir=True)
     odir = os.path.abspath(args.outdir)
 
-    valid_path([indir, roary_dir], check_dir=True)
     valid_path([odir], check_odir=True)
     samples2locus = run_abricate(indir,
                                  odir=odir,
