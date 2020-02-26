@@ -4,7 +4,7 @@ from os.path import *
 from tqdm import tqdm
 from collections import defaultdict
 
-
+#ffffff
 def extract_16s(indir):
     name2_rrna = defaultdict(list)
     for f in tqdm(glob(join(indir, '*', '*.gbk'))):

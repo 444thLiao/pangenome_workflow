@@ -2,25 +2,36 @@ def get_project_root():
     from os.path import dirname
     project_root = dirname(dirname(__file__))
     return project_root
-
+def env_exe(name):
+    from os import popen
+    from os.path import dirname,exists,join
+    import os,sys
+    bin_dir = dirname(sys.executable)
+    f = join(bin_dir,name)
+    if exists(f):
+        return f
+    f = popen(f'which {name} 2>1').read().strip('\n')
+    return f
 
 project_root = get_project_root()
 ############################################################
 # exe path
 ############################################################
-fastqc_path = "/tools/anaconda3/envs/pangenome_pipelines/bin/fastqc"
 
-multiqc_path = "/tools/anaconda3/envs/pangenome_pipelines/bin/multiqc"
 
-trimmomatic_dir = "/home/liaoth/tools/Trimmomatic-0.36"
+fastqc_path = env_exe('fastqc') if env_exe('fastqc') else "/tools/anaconda3/envs/pangenome_pipelines/bin/fastqc"
+
+multiqc_path = env_exe('multiqc') if env_exe('multiqc') else "/tools/anaconda3/envs/pangenome_pipelines/bin/multiqc"
+
+trimmomatic_dir = "/home-user/thliao/anaconda3/envs/wgs/share/trimmomatic-0.39-1"
 trimmomatic_setting = "ILLUMINACLIP:%s/adapters/TruSeq3-PE.fa:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:5" % trimmomatic_dir
-trimmomatic_jar_path = "%s/trimmomatic-0.36.jar" % trimmomatic_dir
+trimmomatic_jar_path = "%s/trimmomatic.jar" % trimmomatic_dir
 
-shovill_path = "/tools/anaconda3/envs/pangenome_pipelines/bin/shovill"
-prokka_path = "/tools/prokka/bin//prokka"
-roary_path = "/tools/anaconda3/envs/pangenome_pipelines/bin/roary"
-quast_path = "/tools/anaconda3/envs/pangenome_pipelines/bin/quast.py"
-pandoo_path = "/tools/anaconda3/envs/pangenome_pipelines/bin/pandoo"
+shovill_path = env_exe('shovill') if env_exe('shovill') else "/tools/anaconda3/envs/pangenome_pipelines/bin/shovill"
+prokka_path = env_exe('prokka') if env_exe('prokka') else  "/tools/prokka/bin/prokka"
+roary_path = env_exe('roary') if env_exe('roary') else  "/tools/anaconda3/envs/pangenome_pipelines/bin/roary"
+quast_path = env_exe('quast.py') if env_exe('quast.py') else  "/tools/anaconda3/envs/pangenome_pipelines/bin/quast.py"
+pandoo_path = env_exe('pandoo') if env_exe('pandoo')  else "/tools/anaconda3/envs/pangenome_pipelines/bin/pandoo"
 fasttree_path = "/usr/bin/fasttreeMP"
 
 ISEscan_path = "/tools/ISEScan/isescan.py"
@@ -31,11 +42,11 @@ plasmid_detect_path = "%s/toolkit/process_plasmid.py" % project_root
 phigaro_path = "/tools/anaconda3/envs/pangenome_pipelines/bin/phigaro"
 gubbins_path = "/tools/anaconda3/envs/pangenome_pipelines/bin/run_gubbins.py"
 
-mlst_path = '/tools/mlst/bin/mlst'
-kraken2_path = '/tools/kraken2/kraken2'
-seqtk_path = '/usr/bin/seqtk'
+mlst_path = env_exe('mlst') if env_exe('mlst') else '/tools/mlst/bin/mlst'
+kraken2_path = env_exe('kraken2') if env_exe('kraken2') else '/home-user/thliao/bin/kraken2'
+seqtk_path = env_exe('seqtk') if env_exe('seqtk') else '/usr/bin/seqtk'
 roary_plot_path = "/tools/Roary/contrib/roary_plots/roary_plots.py"
-mash_path = "/tools/mash-Linux64-v2.1.1/mash"
+mash_path = env_exe('mash') if env_exe('mash') else "/tools/mash-Linux64-v2.1.1/mash"
 
 ############################################################
 # database path
@@ -48,7 +59,7 @@ ariba_str = str({k: "{db}/{name}".format(db=ariba_db, name=k.lower()) for k in a
 
 mlst_db = '/tools/mlst/db/pubmlst/'
 phigaro_config = "/home/db_public/phigaro_db/config.yml"
-kraken2_db = "/home/db_public/kraken2_db/"
+kraken2_db = "/mnt/home-backup/thliao/kraken2_db"
 
 mash_db = "/home/liaoth/data/RefSeq88n.msh"
 # download from https://mash.readthedocs.io/en/latest/data.html

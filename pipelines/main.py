@@ -3,6 +3,7 @@ import time
 from os.path import *
 
 import click
+
 __file__ = abspath(realpath(__file__))
 sys.path.insert(0, dirname(dirname(__file__)))
 from pipelines import *
@@ -168,16 +169,16 @@ def check(update):
             print("\033[1;31;40m {:<10}: no requested files".format(s))
 
 
-def preset_collect(set_name,unify_kwargs,singlereads):
+def preset_collect(set_name, unify_kwargs, singlereads):
     require_tasks = {}
-    if set_name == 'wgs':
-
+    if set_name == 'qc':
         require_tasks["fastqc_before"] = multiqc(status='before',
                                                  **unify_kwargs
                                                  )
         require_tasks["fastqc_after"] = multiqc(status='after',
                                                 **unify_kwargs
                                                 )
+    if set_name == 'wgs':
         # require_tasks["fastqc_quast"] = multiqc(status='quast',
         #                                         other_info=other_info,
         #                                         **unify_kwargs
@@ -190,12 +191,11 @@ def preset_collect(set_name,unify_kwargs,singlereads):
                                                **unify_kwargs)
         # todo: add checkM module after the new version of python3(12.1)
 
-        #require_tasks['checkM'] =
+        # require_tasks['checkM'] =
 
     if set_name == 'full':
         require_tasks["abricate"] = abricate(SE_data=singlereads,
                                              **unify_kwargs)
-
 
         require_tasks["ISEscan_summary"] = ISEscan_summary(SE_data=singlereads,
                                                            **unify_kwargs)
@@ -205,6 +205,7 @@ def preset_collect(set_name,unify_kwargs,singlereads):
         require_tasks["detect_prophage"] = phigaro_summary(SE_data=singlereads,
                                                            **unify_kwargs)
     return require_tasks
+
 
 class workflow(luigi.Task):
     tab = luigi.Parameter()
@@ -241,6 +242,7 @@ class workflow(luigi.Task):
         # post pipelines
         # post_analysis(self)
         pass
+
 
 if __name__ == '__main__':
     cli()
