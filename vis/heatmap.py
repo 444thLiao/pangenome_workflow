@@ -17,7 +17,7 @@ total_df = pd.read_csv(abricate_data_path, sep='\t', index_col=0)
 total_df = total_df.fillna(0)
 
 res_db = ["card", "ncbi", "resfinder", "argannot"]
-vf_db = ["vfdb_full", "vfdb", "victors"]
+vf_db = ["vfdb", "victors"]
 res_df = total_df.loc[total_df.index[:-1], total_df.loc['db', :].isin(res_db)].astype(float).astype(int)
 vf_df = total_df.loc[total_df.index[:-1], total_df.loc['db', :].isin(vf_db)].astype(float).astype(int)
 
