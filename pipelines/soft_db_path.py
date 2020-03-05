@@ -26,7 +26,7 @@ fastqc_path = env_exe('fastqc') if env_exe('fastqc') else "/tools/anaconda3/envs
 
 multiqc_path = env_exe('multiqc') if env_exe('multiqc') else "/tools/anaconda3/envs/pangenome_pipelines/bin/multiqc"
 
-trimmomatic_dir = os.environ.get('HOME') + "/home-user/thliao/anaconda3/envs/wgs/share/trimmomatic-0.39-1"
+trimmomatic_dir = os.environ.get('HOME') + "/anaconda3/envs/wgs/share/trimmomatic-0.39-1"
 trimmomatic_setting = "ILLUMINACLIP:%s/adapters/TruSeq3-PE.fa:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:5" % trimmomatic_dir
 trimmomatic_jar_path = "%s/trimmomatic.jar" % trimmomatic_dir
 
