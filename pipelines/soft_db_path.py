@@ -1,17 +1,20 @@
+import os
+from os.path import exists, join
+
+
 def get_project_root():
     from os.path import dirname
     project_root = dirname(dirname(__file__))
     return project_root
+
+
 def env_exe(name):
-    from os import popen
-    from os.path import dirname,exists,join
-    import os,sys
-    bin_dir = dirname(sys.executable)
-    f = join(bin_dir,name)
-    if exists(f):
-        return f
-    f = popen(f'which {name} 2>1').read().strip('\n')
-    return f
+    p = os.environ.get('PATH')
+    p = p.split(':')
+    for _p in p:
+        if exists(join(_p, name)):
+            return join(_p, name)
+
 
 project_root = get_project_root()
 ############################################################
@@ -23,15 +26,15 @@ fastqc_path = env_exe('fastqc') if env_exe('fastqc') else "/tools/anaconda3/envs
 
 multiqc_path = env_exe('multiqc') if env_exe('multiqc') else "/tools/anaconda3/envs/pangenome_pipelines/bin/multiqc"
 
-trimmomatic_dir = "/home-user/thliao/anaconda3/envs/wgs/share/trimmomatic-0.39-1"
+trimmomatic_dir = os.environ.get('HOME') + "/home-user/thliao/anaconda3/envs/wgs/share/trimmomatic-0.39-1"
 trimmomatic_setting = "ILLUMINACLIP:%s/adapters/TruSeq3-PE.fa:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:5" % trimmomatic_dir
 trimmomatic_jar_path = "%s/trimmomatic.jar" % trimmomatic_dir
 
 shovill_path = env_exe('shovill') if env_exe('shovill') else "/tools/anaconda3/envs/pangenome_pipelines/bin/shovill"
-prokka_path = env_exe('prokka') if env_exe('prokka') else  "/tools/prokka/bin/prokka"
-roary_path = env_exe('roary') if env_exe('roary') else  "/tools/anaconda3/envs/pangenome_pipelines/bin/roary"
-quast_path = env_exe('quast.py') if env_exe('quast.py') else  "/tools/anaconda3/envs/pangenome_pipelines/bin/quast.py"
-pandoo_path = env_exe('pandoo') if env_exe('pandoo')  else "/tools/anaconda3/envs/pangenome_pipelines/bin/pandoo"
+prokka_path = env_exe('prokka') if env_exe('prokka') else "/tools/prokka/bin/prokka"
+roary_path = env_exe('roary') if env_exe('roary') else "/tools/anaconda3/envs/pangenome_pipelines/bin/roary"
+quast_path = env_exe('quast.py') if env_exe('quast.py') else "/tools/anaconda3/envs/pangenome_pipelines/bin/quast.py"
+pandoo_path = env_exe('pandoo') if env_exe('pandoo') else "/tools/anaconda3/envs/pangenome_pipelines/bin/pandoo"
 fasttree_path = "/usr/bin/fasttreeMP"
 
 ISEscan_path = "/tools/ISEScan/isescan.py"

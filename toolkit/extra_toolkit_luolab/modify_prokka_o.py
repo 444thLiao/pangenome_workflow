@@ -17,18 +17,21 @@ def main(indir,odir,annotate_16s,):
     derep_a = a.drop_duplicates('sequence ID')
 
     g2name = defaultdict(list)
+    genome2withMultiple16S = []
     for _, row in derep_a.iterrows():
         id = row['sequence ID']
         gname = id.split('_')[0]
         taxon_name = row['taxon_name']
         strain_name = row['strain_name']
         if gname in g2name:
-            print('error', gname)
-            g2name.pop(gname)
+            print(f'Wrong {gname} it detect multiple 16S. please manually remove one of them. it will not change the output of prokka.')
+            genome2withMultiple16S.append(gname)
+            # g2name.pop(gname)
         else:
             g2name[gname] = (taxon_name.replace(' ', '_'),
                              str(strain_name).replace(' ', '_'))
-
+    for _ in genome2withMultiple16S:
+        g2name.pop(_)
 
     if not exists(odir):
         os.makedirs(odir)
