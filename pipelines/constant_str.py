@@ -16,7 +16,7 @@ trimmomatic_cmd = """java -jar {exe_path} PE -threads {threads} {R1} {R2} -triml
 
 shovill_cmd = """{exe_path} --outdir {odir} --ram {ram} --R1 {R1} --R2 {R2} --depth {depth} --cpus {thread} --minlen 500 --force"""
 # force otherwise it will exit because of pre-created the directory.
-prokka_cmd = """{exe_path} {infile} --outdir {odir} --prefix {sn} --locustag {sn} --force --quiet"""
+prokka_cmd = """{exe_path} {infile} --outdir {odir} --prefix {sn} --locustag {sn} --cpus {thread} --force --quiet"""
 roary_cmd = "rm -r {odir}* ;{exe_path} -r -v -e -g 100000 --mafft -p {thread} -f {odir} {gff_pattern} "
 
 quast_cmd = """{exe_path} {contig} -1 {R1} -2 {R2} --threads {threads} --no-check -o {odir} {extra_str}"""
@@ -43,7 +43,7 @@ summary_dir = "summary_output"
 from multiprocessing import cpu_count
 import psutil
 
-total_thread = 30
+total_thread = 20
 available_ram = int(psutil.virtual_memory().available / (1024 ** 3))
 
 
