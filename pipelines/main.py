@@ -170,8 +170,7 @@ def check(update):
 
 
 def preset_collect(set_name, unify_kwargs, singlereads):
-    if '+' in set_name:
-        set_names = set_name.split('+')
+    set_names = set_name.split('+')
 
     require_tasks = {}
     if  'qc' in set_names:
@@ -198,7 +197,7 @@ def preset_collect(set_name, unify_kwargs, singlereads):
     if "plasmid" in set_names:
         require_tasks["detect_plasmid"] = detect_plasmid(**unify_kwargs)
 
-    if set_name == 'full':
+    if 'full' in set_names:
         require_tasks["abricate"] = abricate(SE_data=singlereads,
                                              **unify_kwargs)
 
