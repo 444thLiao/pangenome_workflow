@@ -283,7 +283,7 @@ class shovill(base_luigi_task):
 
     # .fasta header like >NODE_1_length_292801_cov_27.424733_pilon
     # .fa header like >contig00001 len=292801 cov=27.4 corr=0 spades=NODE_1_length_292801_cov_27.424733_pilon
-    # plasmid pipelines need to use .fasta(which include index of plasmid info),
+    # plasmid pipelines need to use .fasta (which include index of plasmid info),
     # regular pipelines need to use .fa(which use contig0000x as formatted name)
 
     def run(self):

@@ -170,15 +170,18 @@ def check(update):
 
 
 def preset_collect(set_name, unify_kwargs, singlereads):
+    if '+' in set_name:
+        set_names = set_name.split('+')
+
     require_tasks = {}
-    if set_name == 'qc':
+    if  'qc' in set_names:
         require_tasks["fastqc_before"] = multiqc(status='before',
                                                  **unify_kwargs
                                                  )
         require_tasks["fastqc_after"] = multiqc(status='after',
                                                 **unify_kwargs
                                                 )
-    if set_name == 'wgs':
+    if 'wgs'  in set_names:
         # require_tasks["fastqc_quast"] = multiqc(status='quast',
         #                                         other_info=other_info,
         #                                         **unify_kwargs
@@ -192,6 +195,8 @@ def preset_collect(set_name, unify_kwargs, singlereads):
         # todo: add checkM module after the new version of python3(12.1)
 
         # require_tasks['checkM'] =
+    if "plasmid" in set_names:
+        require_tasks["detect_plasmid"] = detect_plasmid(**unify_kwargs)
 
     if set_name == 'full':
         require_tasks["abricate"] = abricate(SE_data=singlereads,
