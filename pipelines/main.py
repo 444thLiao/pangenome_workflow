@@ -173,7 +173,7 @@ def preset_collect(set_name, unify_kwargs, singlereads):
     set_names = set_name.split('+')
 
     require_tasks = {}
-    if  'qc' in set_names:
+    if 'qc' in set_names:
         require_tasks["fastqc_before"] = multiqc(status='before',
                                                  **unify_kwargs
                                                  )
