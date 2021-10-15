@@ -33,7 +33,11 @@ Here is a list of necessary software
 
 > Especially need to be noticed, phigaro should install the forked version mentioned above. Or it will **hang up** to waiting for your input instead of run it thought. This is a defect of it original version.
 
-Most of them which had published to conda repository had been add to `environmen.yml`. But **ISEscan**, **quast** abd **phigaro** need user to installed yourself and its dependency. And database of **abricate** and **kraken2** also need to downlaod.
+Most of them which had published to conda repository had been add to `environmen.yml`. 
+
+`conda env create -f environment.yml`
+
+But **ISEscan**, **quast** abd **phigaro** need user to installed yourself and its dependency. And database of **abricate** and **kraken2** also need to downlaod.
 
 ## config
 After installing all these stuff, you must fulfill a `config` file which located at `pipelines/soft_db_path.py`.
@@ -72,11 +76,11 @@ For now, it only contain two kinds of scheme.
 1. full
 2. wgs
 
-you could use it by pass params like ` -preset wgs ` following the original command.
+you could use it by pass params like ` --preset wgs ` following the original command.
 The default scheme is wgs (it only perform assembly and prokka annotation, and it will stop.)
 
 ```bash
-python3 pipelines/main.py run -- workflow --tab data_input.tab --odir output_dir --workers 2 --log-path output_dir/cmd_log.txt -preset wgs
+python3 pipelines/main.py run -- workflow --tab data_input.tab --odir output_dir --workers 2 --log-path output_dir/cmd_log.txt --preset wgs --local-scheduler
 ```
 
 ## about the `data_input.tab`

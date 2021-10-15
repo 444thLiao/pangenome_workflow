@@ -1,0 +1,1 @@
+pip install tqdm luigi pandas biopython fastcluster gffutils ariba pandoo ruffus bcbio-gff psutil
