@@ -2,7 +2,7 @@ import os
 from glob import glob
 from os.path import *
 
-import click
+import click,re
 
 template_path = join(dirname(dirname(__file__)), 'toolkit', 'data_input.template')
 
@@ -14,8 +14,8 @@ header = open(template_path).read()
 @click.command()
 @click.option("-p", "pattern", help='*.R1.fastq.gz')
 @click.option("-o", "ofile", help='', default=None)
-@click.option('-s', "simple_split", default='_L1_')
-def cli(ofile, pattern, simple_split):
+@click.option('-s', "name_pattern", default='_L1_')
+def cli(ofile, pattern, name_pattern):
     rows = [header]
     if ofile is None:
         ofile = './data_input.tab'
@@ -24,7 +24,7 @@ def cli(ofile, pattern, simple_split):
             os.makedirs(dirname(abspath(ofile)))
     fs = glob(pattern)
     for r1 in fs:
-        name = basename(r1).split(simple_split)[0]
+        name = re.findall(name_pattern,basename(r1))[0]
         R2 = r1.replace('.R1.', '.R2.')
         rows.append('\t'.join([name, r1, R2]))
     with open(ofile, 'w') as f1:
