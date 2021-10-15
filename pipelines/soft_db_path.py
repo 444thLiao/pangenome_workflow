@@ -10,7 +10,7 @@ def env_exe(name):
     f = join(bin_dir,name)
     if exists(f):
         return f
-    f = popen(f'which {name} 2>1').read().strip('\n')
+    f = popen(f'which {name} 2> /dev/null').read().strip('\n')
     return f
 
 project_root = get_project_root()
@@ -54,14 +54,14 @@ mash_path = env_exe('mash') if env_exe('mash') else "/tools/mash-Linux64-v2.1.1/
 abricate_db = "/tools/abricate/db/"
 
 ariba_db = "/home/db_public/ariba_db"
-ariba_db_list = ["CARD", "megares", "plasmidfinder", "resfinder", "srst2_argannot", "virulencefinder"]
+ariba_db_list = ["CARD", "megares", "plasmidfinder", "resfinder", "srst2_argannot", "vfdb_full", "virulencefinder"]
 ariba_str = str({k: "{db}/{name}".format(db=ariba_db, name=k.lower()) for k in ariba_db_list})
 
 mlst_db = '/tools/mlst/db/pubmlst/'
 phigaro_config = "/home/db_public/phigaro_db/config.yml"
 kraken2_db = "/mnt/home-backup/thliao/kraken2_db"
 
-mash_db = "/home/liaoth/data/RefSeq88n.msh"
+mash_db = "/home-user/thliao/data/mash_db/RefSeq88n.msh"
 # download from https://mash.readthedocs.io/en/latest/data.html
-mash_db_summary = '/home/liaoth/data/assembly_summary_refseq.txt'
+mash_db_summary = '/home-user/thliao/dataassembly_summary_refseq.txt'
 # download from
