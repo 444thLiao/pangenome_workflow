@@ -164,7 +164,7 @@ def run_prokka(infile, odir,
                             infile=infile,
                             odir=odir,
                             sn=sample_name,
-                            thread=thread,
+                            thread=10,
                             )
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
