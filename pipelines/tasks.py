@@ -93,7 +93,32 @@ def run_multiqc(in_dir,
                              extra_str=extra_str)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
-
+## QC part
+def run_fastp(R1, R2, odir,
+                    sample_name,
+                    thread=0,
+                    exe_path=fastp_path,
+                    dry_run=False,
+                    log_file=None):
+    if thread == 0 or thread == -1:
+        thread = cpu_count()
+    if not dry_run:
+        valid_path([R1, R2], check_size=True)
+    valid_path(odir, check_odir=True)
+    sample_name = str(sample_name)
+    clean_r1 = os.path.join(odir, sample_name + '_R1.clean.fq.gz')
+    clean_r2 = os.path.join(odir, sample_name + '_R2.clean.fq.gz')
+    log = os.path.join(odir, sample_name + '.log')
+    cmd = fastp_cmd.format(exe_path=exe_path,
+                                 threads=thread,
+                                 R1=R1,
+                                 R2=R2,
+                                 log=log,
+                                 clean_r1=clean_r1,
+                                 clean_r2=clean_r2,
+                                 params=fastp_extra_params)
+    run_cmd(cmd, dry_run=dry_run, log_file=log_file)
+    
 def run_trimmomatic(R1, R2, odir,
                     sample_name,
                     thread=0,

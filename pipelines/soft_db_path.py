@@ -29,6 +29,9 @@ multiqc_path = env_exe('multiqc') if env_exe('multiqc') else "/tools/anaconda3/e
 trimmomatic_dir = os.environ.get('HOME') + "/anaconda3/envs/wgs/share/trimmomatic-0.39-1"
 trimmomatic_setting = "ILLUMINACLIP:%s/adapters/TruSeq3-PE.fa:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:5" % trimmomatic_dir
 trimmomatic_jar_path = "%s/trimmomatic.jar" % trimmomatic_dir
+fastp_extra_params = ''
+fastp_path = env_exe('fastp') if env_exe('fastp') else "/tools/anaconda3/envs/pangenome_pipelines/bin/fastp"
+
 
 shovill_path = env_exe('shovill') if env_exe('shovill') else "/tools/anaconda3/envs/pangenome_pipelines/bin/shovill"
 prokka_path = env_exe('prokka') if env_exe('prokka') else "/tools/prokka/bin/prokka"
