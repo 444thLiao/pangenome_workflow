@@ -38,10 +38,10 @@ class fastqc(base_luigi_task):
             "it doesn't need to require to any tasks"
             return
         elif self.status == 'after':
-            return trimmomatic(R1=self.R1,
-                               R2=self.R2,
-                               sample_name=self.sample_name,
-                               **kwargs)
+            return fastp(R1=self.R1,
+                        R2=self.R2,
+                        sample_name=self.sample_name,
+                        **kwargs)
 
     def output(self):
         odir = os.path.join(str(self.odir),
@@ -160,7 +160,7 @@ class preprocess_SE(base_luigi_task):
             run_cmd("touch %s" % self.output().path, dry_run=False)
 
 
-class trimmomatic(base_luigi_task):
+class fastp(base_luigi_task):
     R1 = luigi.Parameter()
     R2 = luigi.Parameter()
     sample_name = luigi.Parameter()
@@ -178,7 +178,7 @@ class trimmomatic(base_luigi_task):
                 luigi.LocalTarget(ofile2)]
 
     def run(self):
-        run_trimmomatic(R1=self.R1,
+        run_fastp(R1=self.R1,
                         R2=self.R2,
                         odir=os.path.join(str(self.odir),
                                           "cleandata"),
@@ -196,6 +196,44 @@ class trimmomatic(base_luigi_task):
         if self.dry_run:
             for _o in self.output():
                 run_cmd("touch %s" % _o.path, dry_run=False)
+                
+                
+# class trimmomatic(base_luigi_task):
+#     R1 = luigi.Parameter()
+#     R2 = luigi.Parameter()
+#     sample_name = luigi.Parameter()
+
+#     def output(self):
+#         # two files which are clean R1,R2.
+#         # return [luigi.LocalTarget(f) for f in ofiles]
+#         ofile1 = os.path.join(str(self.odir),
+#                               "cleandata",
+#                               str(self.sample_name) + '_R1.clean.fq.gz')
+#         ofile2 = os.path.join(str(self.odir),
+#                               "cleandata",
+#                               str(self.sample_name) + '_R2.clean.fq.gz')
+#         return [luigi.LocalTarget(ofile1),
+#                 luigi.LocalTarget(ofile2)]
+
+#     def run(self):
+#         run_trimmomatic(R1=self.R1,
+#                         R2=self.R2,
+#                         odir=os.path.join(str(self.odir),
+#                                           "cleandata"),
+#                         sample_name=self.sample_name,
+#                         thread=self.thread - 1,  # todo: determine the thread
+#                         dry_run=self.dry_run,
+#                         log_file=self.get_log_path()
+#                         )
+#         # remove the log file, too waste
+#         try:
+#             pth = self.output()[0].path.replace('_R1.clean.fq.gz', '.log')
+#             os.remove(pth)
+#         except:
+#             pass
+#         if self.dry_run:
+#             for _o in self.output():
+#                 run_cmd("touch %s" % _o.path, dry_run=False)
 
 
 class quast(base_luigi_task):
@@ -212,7 +250,7 @@ class quast(base_luigi_task):
                         status="regular",
                         **kwargs),
 
-                trimmomatic(R1=self.R1,
+                fastp(R1=self.R1,
                             R2=self.R2,
                             sample_name=self.sample_name,
                             **kwargs)]
@@ -260,7 +298,7 @@ class shovill(base_luigi_task):
 
     def requires(self):
         kwargs = self.get_kwargs()
-        return trimmomatic(R1=self.R1,
+        return fastp(R1=self.R1,
                            R2=self.R2,
                            sample_name=self.sample_name,
                            **kwargs)
