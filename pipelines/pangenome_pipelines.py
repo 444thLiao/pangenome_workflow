@@ -39,10 +39,9 @@ class fastqc(base_luigi_task):
             return
         elif self.status == 'after':
             return fastp(R1=self.R1,
-                        R2=self.R2,
-                        sample_name=self.sample_name,
-                        
-                        **kwargs)
+                         R2=self.R2,
+                         sample_name=self.sample_name,
+                         **kwargs)
 
     def output(self):
         odir = os.path.join(str(self.odir),
@@ -105,7 +104,8 @@ class multiqc(base_luigi_task):
         if self.status == 'before' or self.status == 'after':
             indir = os.path.dirname(self.input()[0][0].path)  # any one is ok
         elif self.status == "quast":
-            indir = os.path.dirname(os.path.dirname(self.input()[0].path))  # any one is ok
+            indir = os.path.dirname(os.path.dirname(
+                self.input()[0].path))  # any one is ok
         else:
             raise Exception
         filename = os.path.basename(indir)
@@ -180,14 +180,14 @@ class fastp(base_luigi_task):
 
     def run(self):
         run_fastp(R1=self.R1,
-                        R2=self.R2,
-                        odir=os.path.join(str(self.odir),
-                                          "cleandata"),
-                        sample_name=self.sample_name,
-                        thread=self.thread - 1,  # todo: determine the thread
-                        dry_run=self.dry_run,
-                        log_file=self.get_log_path()
-                        )
+                  R2=self.R2,
+                  odir=os.path.join(str(self.odir),
+                                    "cleandata"),
+                  sample_name=self.sample_name,
+                  thread=self.thread - 1,  # todo: determine the thread
+                  dry_run=self.dry_run,
+                  log_file=self.get_log_path()
+                  )
         # remove the log file, too waste
         try:
             pth = self.output()[0].path.replace('_R1.clean.fq.gz', '.log')
@@ -197,8 +197,8 @@ class fastp(base_luigi_task):
         if self.dry_run:
             for _o in self.output():
                 run_cmd("touch %s" % _o.path, dry_run=False)
-                
-                
+
+
 # class trimmomatic(base_luigi_task):
 #     R1 = luigi.Parameter()
 #     R2 = luigi.Parameter()
@@ -252,9 +252,9 @@ class quast(base_luigi_task):
                         **kwargs),
 
                 fastp(R1=self.R1,
-                            R2=self.R2,
-                            sample_name=self.sample_name,
-                            **kwargs)]
+                      R2=self.R2,
+                      sample_name=self.sample_name,
+                      **kwargs)]
 
     def output(self):
         # todo: formatted the output directory
@@ -300,9 +300,9 @@ class shovill(base_luigi_task):
     def requires(self):
         kwargs = self.get_kwargs()
         return fastp(R1=self.R1,
-                           R2=self.R2,
-                           sample_name=self.sample_name,
-                           **kwargs)
+                     R2=self.R2,
+                     sample_name=self.sample_name,
+                     **kwargs)
 
     def output(self):
         if self.status == 'plasmid':
@@ -392,7 +392,7 @@ class prokka(base_luigi_task):
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
 
-## pangenome analysis part
+# pangenome analysis part
 class pre_roary(base_luigi_task):
     PE_data = luigi.TupleParameter()
     SE_data = luigi.TupleParameter()
@@ -405,11 +405,11 @@ class pre_roary(base_luigi_task):
                                   sample_name=sn,
                                   **kwargs)
                            for sn, _R1, _R2 in self.PE_data] + \
-                          [prokka(R1=_R1,
-                                  R2='',
-                                  sample_name=sn,
-                                  **kwargs)
-                           for sn, _R1 in self.SE_data]
+            [prokka(R1=_R1,
+                    R2='',
+                    sample_name=sn,
+                    **kwargs)
+             for sn, _R1 in self.SE_data]
         tasks["annotated_species"] = species_annotated_summary(PE_data=self.PE_data,
                                                                SE_data=self.SE_data,
                                                                **kwargs)
@@ -556,7 +556,8 @@ class fasttree(base_luigi_task):
         roary_dir = dirname(self.output()[0].path)
         cmdline = "cd {roarydir}; {roary_plot} {core_gene_tree} {ab_csv}".format(roarydir=roary_dir,
                                                                                  roary_plot=roary_plot_path,
-                                                                                 core_gene_tree=self.output()[0].path,
+                                                                                 core_gene_tree=self.output()[
+                                                                                     0].path,
                                                                                  ab_csv=os.path.join(roary_dir,
                                                                                                      "gene_presence_absence.csv"))
         run_cmd(cmdline,
@@ -567,7 +568,7 @@ class fasttree(base_luigi_task):
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
 
-## quality accessment
+# quality accessment
 class seqtk_tasks(prokka):
     def output(self):
         odir = os.path.join(str(self.odir), "seqtk_result")
@@ -668,7 +669,7 @@ class seqtk_summary(base_luigi_task):
                     dry_run=False)
 
 
-## gene annotated
+# gene annotated
 class abricate(base_luigi_task):
     # todo: separate into independent task and summary task
     # single and joint
@@ -703,7 +704,7 @@ class abricate(base_luigi_task):
         run_abricate(prokka_o,
                      # roary_dir=roary_dir,
                      odir=os.path.join(str(self.odir),
-                            "abricate_result"),
+                                       "abricate_result"),
                      thread=int(self.thread) - 1,
                      mincov=constant.mincov_abricate,
                      dry_run=self.dry_run,
@@ -712,11 +713,14 @@ class abricate(base_luigi_task):
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
+
 class abricate_summary(base_luigi_task):
     # todo: separate into independent task and summary task
     pass
 
-## mlst typing
+# mlst typing
+
+
 class mlst_task(prokka):
     def output(self):
         odir = os.path.join(str(self.odir),
@@ -738,7 +742,7 @@ class mlst_task(prokka):
         from toolkit.process_mlst import parse_mlst
         ofiles = glob(self.output().path + '*')
         merged_df = parse_mlst(ofiles, sample_name=self.sample_name)
-        merged_df.to_csv(self.output().path, index=1,index_label="sample ID")
+        merged_df.to_csv(self.output().path, index=1, index_label="sample ID")
         if self.dry_run:
             run_cmd("touch %s" % self.output().path, dry_run=False)
 
@@ -786,7 +790,7 @@ class mlst_summary(base_luigi_task):
             run_cmd("touch %s" % self.output().path, dry_run=False)
 
 
-## annotated species
+# annotated species
 class kraken2_tasks(prokka):
 
     def output(self):
@@ -939,10 +943,11 @@ class species_annotated_summary(base_luigi_task):
                           if otarget.path.endswith(".mash_report")]
             mash_df = parse_batch_result(mash_paths, mash_db_summary)
             annotated_df = pd.concat([kraken2_df, mash_df], axis=1)
-            annotated_df.to_csv(self.output().path, index=1, index_label="sample ID")
+            annotated_df.to_csv(self.output().path, index=1,
+                                index_label="sample ID")
 
 
-## transposed element annotated
+# transposed element annotated
 class ISEscan(base_luigi_task):
     # single
     R1 = luigi.Parameter()
@@ -1091,7 +1096,8 @@ class detect_plasmid(base_luigi_task):
                                               "plasmid_summary.tab"))
 
     def run(self):
-        assembly_odir = str(self.input()["shovill"][0].path).rsplit('/', maxsplit=3)[0]
+        assembly_odir = str(self.input()["shovill"][0].path).rsplit(
+            '/', maxsplit=3)[0]
 
         run_plasmid_detect(indir=assembly_odir,  # todo: maybe not compatible to windows OS.
                            ofile=self.output().path,
@@ -1177,7 +1183,8 @@ class phigaro_summary(ISEscan_summary):
                     summary_df = summary_df.append(pd.DataFrame([[sample_name,
                                                                   region,
                                                                   json.dumps(other_info)]],
-                                                                index=[sample_name],
+                                                                index=[
+                                                                    sample_name],
                                                                 columns=summary_df.columns))
             summary_df.to_csv(self.output().path, sep='\t', index=1)
 
@@ -1186,7 +1193,7 @@ class phigaro_summary(ISEscan_summary):
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
 
-## transposed element annotated <end>
+# transposed element annotated <end>
 #
 # class pandoo(base_luigi_task):
 #     # single and joint
