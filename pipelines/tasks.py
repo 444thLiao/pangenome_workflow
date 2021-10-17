@@ -36,9 +36,10 @@ def check_exe():
         path = check_exists(check_list[software])
 
         if path is not None:
-            print(software.ljust(11) + ':\tok\t' + path.ljust(11), file=sys.stderr)
+            print(software.ljust(11) + ':\tok\t' +
+                  path.ljust(11), file=sys.stderr)
         else:
-            print('Dependency ' + software + ' is not existed.  Please ' + \
+            print('Dependency ' + software + ' is not existed.  Please ' +
                   'check constrant_str',
                   file=sys.stderr)
 
@@ -93,13 +94,15 @@ def run_multiqc(in_dir,
                              extra_str=extra_str)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
 
-## QC part
+# QC part
+
+
 def run_fastp(R1, R2, odir,
-                    sample_name,
-                    thread=0,
-                    exe_path=fastp_path,
-                    dry_run=False,
-                    log_file=None):
+              sample_name,
+              thread=0,
+              exe_path=fastp_path,
+              dry_run=False,
+              log_file=None):
     if thread == 0 or thread == -1:
         thread = cpu_count()
     if not dry_run:
@@ -109,16 +112,22 @@ def run_fastp(R1, R2, odir,
     clean_r1 = os.path.join(odir, sample_name + '_R1.clean.fq.gz')
     clean_r2 = os.path.join(odir, sample_name + '_R2.clean.fq.gz')
     log = os.path.join(odir, sample_name + '.log')
+    json = os.path.join(odir, sample_name + '.html')
+    html = os.path.join(odir, sample_name + '.json')
+
     cmd = fastp_cmd.format(exe_path=exe_path,
-                                 threads=thread,
-                                 R1=R1,
-                                 R2=R2,
-                                 log=log,
-                                 clean_r1=clean_r1,
-                                 clean_r2=clean_r2,
-                                 params=fastp_extra_params)
+                           threads=thread,
+                           R1=R1,
+                           R2=R2,
+                           log=log,
+                           clean_r1=clean_r1,
+                           clean_r2=clean_r2,
+                           json=json,
+                           html=html,
+                           params=fastp_extra_params)
     run_cmd(cmd, dry_run=dry_run, log_file=log_file)
-    
+
+
 def run_trimmomatic(R1, R2, odir,
                     sample_name,
                     thread=0,
@@ -426,7 +435,8 @@ def run_seqtk_contig(infile, outfile, isolate,
     metrics[pfx + 'lt1K'] = len([_ for _ in contig_lengths if _ > 1000])
     metrics[pfx + 'lt5K'] = len([_ for _ in contig_lengths if _ > 5000])
     metrics[pfx + 'ok'] = bps - nns
-    metrics[pfx + "GC %"] = df1.loc[:, ['#C', '#G', ]].sum(axis=1).div(df1.loc[:, ['#A', '#C', '#G', '#T']].sum(axis=1)).mean()
+    metrics[pfx + "GC %"] = df1.loc[:, ['#C', '#G', ]
+                                    ].sum(axis=1).div(df1.loc[:, ['#A', '#C', '#G', '#T']].sum(axis=1)).mean()
     metrics['sotwareSeqTKversion_comp'] = seqtk_version()
     seqtk_comp_df = pd.DataFrame.from_dict({isolate: metrics},
                                            orient='index')
@@ -673,7 +683,8 @@ def post_analysis(workflow_task):
             if fea.type == 'CDS':
                 locus_id = fea.id
                 annotated = merged_locus2annotate.get(locus_id, locus_id)
-                fea.qualifiers["ID"] = fea.qualifiers['locus_tag'] = [annotated]
+                fea.qualifiers["ID"] = fea.qualifiers['locus_tag'] = [
+                    annotated]
                 fea.id = annotated
     ###########
     # main part for generate multiple GFF files
@@ -731,7 +742,8 @@ def post_analysis(workflow_task):
     for scheme in type_ST:
         with open(os.path.join(summary_odir,
                                "%s_mlst.csv" % scheme.replace('_ST', '')), 'w') as f1:
-            pandoo_df.loc[:, pandoo_df.columns.str.startswith(scheme)].to_csv(f1, index=1)
+            pandoo_df.loc[:, pandoo_df.columns.str.startswith(
+                scheme)].to_csv(f1, index=1)
     ############################################################
     # abricate
     abricate_ofile = workflow_task.input()["abricate"].path
