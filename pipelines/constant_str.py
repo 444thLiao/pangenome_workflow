@@ -13,7 +13,7 @@ specific_species = "Acinetobacter baumannii"
 fastqc_cmd = "{exe_path} {in_files} -t 2 -o {odir} --quiet"
 multiqc_cmd = "{exe_path} {indir} --outdir {odir} --filename {fn} --force -q {extra_str}"
 trimmomatic_cmd = """java -jar {exe_path} PE -threads {threads} {R1} {R2} -trimlog {log} {clean_r1} {unpaired_r1} {clean_r2} {unpaired_r2} {params}"""
-fastp_cmd = """{exe_path} -w {threads} -i {R1} -I {R2} -o {clean_r1} -O {clean_r2} -j {json} -h {html}> {log}"""
+fastp_cmd = """{exe_path}  -i {R1} -I {R2} -o {clean_r1} -O {clean_r2} -j {json} -h {html} -w {threads} """
 
 
 shovill_cmd = """{exe_path} --outdir {odir} --ram {ram} --R1 {R1} --R2 {R2} --depth {depth} --cpus {thread} --minlen 500 --force --tmpdir `realpath {odir}`"""

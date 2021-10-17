@@ -112,8 +112,8 @@ def run_fastp(R1, R2, odir,
     clean_r1 = os.path.join(odir, sample_name + '_R1.clean.fq.gz')
     clean_r2 = os.path.join(odir, sample_name + '_R2.clean.fq.gz')
     log = os.path.join(odir, sample_name + '.log')
-    json = os.path.join(odir, sample_name + '.html')
-    html = os.path.join(odir, sample_name + '.json')
+    json = os.path.join(odir, sample_name + '.json')
+    html = os.path.join(odir, sample_name + '.html')
 
     cmd = fastp_cmd.format(exe_path=exe_path,
                            threads=thread,
