@@ -10,7 +10,7 @@ dependencies:
   - any2fasta=0.4.2=2
   - backcall=0.1.0=py_0
   - bedtools=2.29.0=hc088bd4_3
-  - blast=2.9.0=pl526h3066fca_4
+  - blast=2.1.1
   - boost=1.70.0=py36h9de70de_1
   - boost-cpp=1.70.0=h8e57a91_2
   - bwa=0.7.17=hed695b0_6

@@ -41,6 +41,7 @@ class fastqc(base_luigi_task):
             return fastp(R1=self.R1,
                         R2=self.R2,
                         sample_name=self.sample_name,
+                        
                         **kwargs)
 
     def output(self):
