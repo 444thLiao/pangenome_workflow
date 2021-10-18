@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from pipelines import run_cmd
-from pipelines.constant_str import assembly_summary_header
+# from pipelines.constant_str import assembly_summary_header
 
 
 def batch_mash(prokka_dir, db='', thread=40):
