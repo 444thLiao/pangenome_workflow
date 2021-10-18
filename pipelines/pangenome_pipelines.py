@@ -1,4 +1,5 @@
 from os.path import join, dirname
+from posixpath import basename
 
 import luigi
 
@@ -404,12 +405,12 @@ class pre_roary(base_luigi_task):
                                   R2=_R2,
                                   sample_name=sn,
                                   **kwargs)
-                           for sn, _R1, _R2 in self.PE_data] + \
-            [prokka(R1=_R1,
-                    R2='',
-                    sample_name=sn,
-                    **kwargs)
-             for sn, _R1 in self.SE_data]
+                           for sn, _R1, _R2 in self.PE_data]
+        tasks["prokka"] += [prokka(R1=_R1,
+                                   R2='',
+                                   sample_name=sn,
+                                   **kwargs)
+                            for sn, _R1 in self.SE_data]
         tasks["annotated_species"] = species_annotated_summary(PE_data=self.PE_data,
                                                                SE_data=self.SE_data,
                                                                **kwargs)
@@ -435,6 +436,8 @@ class pre_roary(base_luigi_task):
             from toolkit.pre_roary import pairwise_mash
             kwargs = self.get_kwargs()
             infiles = [_.path for _ in self.input()["prokka"]]
+            infiles = [join(dirname(_),
+                            basename(dirname(_))+'.fna') for _ in infiles]
             odir = dirname(self.output()[0].path)
             db = os.path.join(odir, 'pairwise_ref.msh')
             thread = int(self.thread) - 1
@@ -450,8 +453,7 @@ class pre_roary(base_luigi_task):
             names = list(cluster_df.loc[:, "clustering"])
             set2sids = defaultdict(list)
             for n, sid in zip(names, sids):
-                annotated_org = cluster_df.loc[cluster_df.loc[:, "clustering"] == n,
-                                               "annotated organism"]
+                annotated_org = cluster_df.loc[cluster_df.loc[:, "clustering"] == n,"annotated organism"]
                 most_org = annotated_org.value_counts().index[0]
                 most_species = most_org.split()[-1]
                 set2sids["set%s_%s" % (n, most_species)].append(sid)
