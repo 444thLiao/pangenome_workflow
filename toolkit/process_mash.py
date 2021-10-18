@@ -80,7 +80,12 @@ def parse_batch_result(infiles, refseq_summary):
     # For pipelines required
     refseq_df = pd.read_csv(refseq_summary, sep='\t', index_col=None,
                             header=None, low_memory=False, comment="#")
-    refseq_df.columns = assembly_summary_header
+    #refseq_df.columns = assembly_summary_header
+    _f = open(refseq_summary)
+    _f.readline()
+    header = _f.readline().strip('# \n')
+    refseq_df.columns = header.split('\t')
+    
     aid2name = dict(zip(list(refseq_df.loc[:, 'assembly_accession']),
                         list(refseq_df.loc[:, 'organism_name'])))
     ###################
