@@ -70,4 +70,5 @@ kraken2_db = "/mnt/home-backup/thliao/kraken2_db"
 mash_db = "/home/liaoth/data/RefSeq88n.msh"
 # download from https://mash.readthedocs.io/en/latest/data.html
 mash_db_summary = '/home/liaoth/data/assembly_summary_refseq.txt'
-# download from
+# download and combine from https://ftp.ncbi.nih.gov/genomes/ASSEMBLY_REPORTS/assembly_summary_refseq_historical.txt 
+# and https://ftp.ncbi.nih.gov/genomes/ASSEMBLY_REPORTS/assembly_summary_refseq.txt

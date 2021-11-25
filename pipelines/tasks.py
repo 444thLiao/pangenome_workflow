@@ -403,6 +403,15 @@ def run_seqtk_contig(infile, outfile, isolate,
     Runs SeqTK on the contigs.fa (assemblies).
     Gathers the fasta metrics.
     process only one infile each time.
+    
+    ts transition ie. adacent A<=>G or C<=>T
+    tv transversion - the other possible [AGTC]<=>[AGTC] ajdacent pairs
+    CpG CG pair (revcom aware)
+    CpG-ts CG pair (revcom aware) but allowing transitions in 1st (and/or 2nd) base
+    #2 number of ambiguous IUPAC bases with 2 possibile values
+    #3 ditto with 3
+    #4 ditto with 4 (I assume this means "N")
+
     '''
     assert os.path.isfile(infile)
     seqtk = seqtk_path
@@ -451,6 +460,10 @@ def run_seqtk_reads(infile, outfile, isolate,
     Runs SeqTK fqchk on the reads.
     If pair end sequencing fastq, input one.
     Gathers fastq metrics.
+    
+    Yield: Number of bp in both forward and reverse files
+    GeeCee: Number of G and C
+    
     '''
     assert os.path.isfile(infile)
     outfile = os.path.realpath(outfile)
