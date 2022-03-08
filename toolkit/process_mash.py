@@ -12,6 +12,7 @@ from pipelines import run_cmd
 # from pipelines.constant_str import assembly_summary_header
 
 
+
 def batch_mash(prokka_dir, db='', thread=40):
     db = os.path.abspath(db)
     header = ["reference-ID", "query-ID", "distance", "p-value", "shared-hashes"]
@@ -44,7 +45,11 @@ def batch_mash(prokka_dir, db='', thread=40):
 def merge_mash(aln_dict, refseq_summary=''):
     refseq_df = pd.read_csv(refseq_summary, sep='\t', index_col=None,
                             header=None, low_memory=False, comment="#")
-    refseq_df.columns = assembly_summary_header
+    #refseq_df.columns = assembly_summary_header
+    _f = open(refseq_summary)
+    _f.readline()
+    header = _f.readline().strip('# \n')
+    refseq_df.columns = header.split('\t')    
     aid2name = dict(zip(list(refseq_df.loc[:, 'assembly_accession']),
                         list(refseq_df.loc[:, 'organism_name'])))
     aln2org = {}

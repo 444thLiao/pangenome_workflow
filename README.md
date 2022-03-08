@@ -1,21 +1,21 @@
 # Pangenome analysis workflow
 
-For collecting all required tasks into a single pipelines, this project had been implemented.
+The project is a pipleine intergrating different tasks for pangenome analysis.
 
 Dependency Graph of this workflow.
 
 ![pipelines dependency overview](./pipelines.png)
 
-red arrow means: combine with multiple down stream tasks.
+Red arrow represent the step is combining multiple results generated from the upper step.
 
-## installation
+## Installation
 
-This is a project composed with a lot of other tools or software. Some software also contain its own database. 
+This is a project composed with a lot of other tools or software. Some software also contain its own database.
 
-There is no way could easily handle all these software at one-click. 
-Here we provide a `environment.yml` for easy create a environment with **ananconda**.
+There is no way could easily handle all these software at one-click.
+Here we provide a `environment.yml` for easy create a environment with **ananconda**. It might encount different problems since the diversity of the software.
 
-Here is a list of necessary software
+Here is a list of the necessary software
 
 * [trimmomatic](http://www.usadellab.org/cms/index.php?page=trimmomatic)
 * [fastqc](https://github.com/s-andrews/FastQC)
@@ -31,35 +31,41 @@ Here is a list of necessary software
 * [seqtk](https://github.com/lh3/seqtk)
 * [phigaro](https://github.com/444thLiao/phigaro)
 
-> Especially need to be noticed, phigaro should install the forked version mentioned above. Or it will **hang up** to waiting for your input instead of run it thought. This is a defect of it original version.
+> Especially need to be noticed, phigaro should install the forked version mentioned above. Or it will **hang up** to waiting for your input instead of run it thought. This is a defect of it original version. (May be solved in current version?)
 
-Most of them which had published to conda repository had been add to `environmen.yml`. 
+The software that published in conda mirror had been added to `environmen.yml`.
 
 `conda env create -f environment.yml`
 
 But **ISEscan**, **quast** abd **phigaro** need user to installed yourself and its dependency. And database of **abricate** and **kraken2** also need to downlaod.
 
 ## config
+
 After installing all these stuff, you must fulfill a `config` file which located at `pipelines/soft_db_path.py`.
 
 ## testing
+
 ```bash
 python3 pipelines/main.py testdata -o output_dir
 ```
 
+It is important to note that the `luigi` used as workflow management in our pipeline require a scheduler. If you doesn't run a deamon to listen the works, you should add a extra parameter `--local-scheduler`
+
 ## QuickStart
 
-After all above things, you could finally start using this pipelines for your own data.
+After you install the pipelines correctly, you could start using the pipelines for your own data.
 
-Following the header and separator of `toolkit/data_input.template`, fulfill a new `data_input.tab`.
+Following the rules of `toolkit/data_input.template`, fulfill a new `data_input.tab`.
 
 With this tab, you could run:
+
 ```bash
 python3 pipelines/main.py run -- workflow --tab data_input.tab --odir output_dir --workers 2 --log-path output_dir/cmd_log.txt
 ```
 
+Don't forget the **double dashes** after the `run` since it is necessary for the library `click` to accept parameters.
 
-Besides the params `--tab`, `--odir`, `--analysis-type`, `--log-path`, other params are luigi implemented. 
+Besides the params `--tab`, `--odir`, `--analysis-type`, `--log-path`, other params are luigi implemented.
 
 Here describe a little bit about these params. For more detailed, you should check the documentation of luigi at [luigi doc](https://luigi.readthedocs.io/en/stable/)
 
@@ -69,14 +75,18 @@ Here describe a little bit about these params. For more detailed, you should che
 * `--workers`: it could control how many tasks could be parallel.
 * `--thread`: it could control how many thread could be used at each task.
 
-
 ## preset scheme
-For most people, some modules were redunctant. So I implement a preset param for modify the module it used. 
-For now, it only contain two kinds of scheme. 
+
+For most people, some modules were redunctant. So I implement a preset param that allow the user only use a set of modules.
+For now, it only contain following schemes.
+
 1. full
 2. wgs
+3. qc
+4. plasmid
 
-you could use it by pass params like ` --preset wgs ` following the original command.
+
+You could use it by passing the param like `--preset wgs` following the original command. Or if you want to have multiple scheme in a single run, you could use `--preset wgs+qc` to run both `wgs` and `qc` in a single run.
 The default scheme is wgs (it only perform assembly and prokka annotation, and it will stop.)
 
 ```bash
@@ -85,7 +95,7 @@ python3 pipelines/main.py run -- workflow --tab data_input.tab --odir output_dir
 
 ## about the `data_input.tab`
 
-Please following the template file `toolkit/data_input.template`, new **data_input.tab** should contains all its header. 
+Please following the template file `toolkit/data_input.template`, new **data_input.tab** should contains all its header.
 
 `\t` is taken as separator of this `data_input.tab` for better handle some weird filename.
 
@@ -96,6 +106,7 @@ Besides that, if you don't know which `ref` or which `gff` you need to choose, y
 These columns only used to perform quality assessment for now.
 
 ## about post analysis
+
 For convenient visualization and assessment for the output of pipelines, a script called `toolkit/post_analysis.py` was implemented. Because it need to use the pan-genome analysis output, the output directory of **roary** is necessary.
 
 ```bash
@@ -107,25 +118,26 @@ python3 toolkit/post_analysis.py run -r output_dir/all_roary_o -o output_dir/new
 
 for advanced user, you could also use `-p` & `-a` to indicate the path of prokka or the path of abricate_file. Normally, `abricate_file` will recalculated with the abricate ouput directory at  **output_dir** otherwise you could simple use the file located at `output_dir/abricate_result/samples2annotate.csv`
 
-
 ## Q&A
 
 Although I have try real data for test, but different kinds of input is unpredictable. Here provide some of the problems may occurs and its solution.
 
 1. Why my workflow stop and hang up such a lot time and doesn't consume any CPU resource?
-    > I think it is the problem I mention it above. Inside the original version of phigaro, it will ask the user to input yes or no to continue. If you using the original version of phigaro, please change it to forked version of mine. https://github.com/444thLiao/phigaro . If you want to know what i have change, you could see the file under the phigaro project (`phigaro/batch/task/preprocess.py`)
+   > I think it is the problem I mention it above. Inside the original version of phigaro, it will ask the user to input yes or no to continue. If you using the original version of phigaro, please change it to forked version of mine. https://github.com/444thLiao/phigaro . If you want to know what i have change, you could see the file under the phigaro project (`phigaro/batch/task/preprocess.py`)
+   >
 2. How could I change the parameter of one of the task?
-    > For now, it may be difficult to change it easily. You may need to go inside the project and find the file `pipelines/constant_str.py`. You could change the command line template for meet you requirement, but you need to be careful these `{}` and not to change them.
-2. Could I add more tasks?
-    > Yes, of course you could manually reconstruct and add/delete more tasks. But first you should look carefully at `pipelines/pangenome_pipelines.py`. All sub tasks of luigi were put here, you should process the dependency of them.
+   > For now, it may be difficult to change it easily. You may need to go inside the project and find the file `pipelines/constant_str.py`. You could change the command line template for meet you requirement, but you need to be careful these `{}` and not to change them.
+   >
+3. Could I add more tasks?
+   > Yes, of course you could manually reconstruct and add/delete more tasks. But first you should look carefully at `pipelines/pangenome_pipelines.py`. All sub tasks of luigi were put here, you should process the dependency of them.
+   >
 
 ## Feedback
 
-Please file questions, bugs or ideas 
+Please file questions, bugs or ideas
 to the [Issue Tracker](https://github.com/444thLiao/pangenome_workflow)
 
 ## Authors
+
 Tianhua Liao
 email: l0404th@gmail.com
-
- 
