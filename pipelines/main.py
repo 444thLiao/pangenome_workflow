@@ -1,4 +1,4 @@
-from pipelines import *
+from . import *
 import sys
 import time
 from os.path import *
