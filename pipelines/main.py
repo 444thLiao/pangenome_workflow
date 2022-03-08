@@ -1,3 +1,4 @@
+from pipelines import *
 import sys
 import time
 from os.path import *
@@ -6,7 +7,6 @@ import click
 
 __file__ = abspath(realpath(__file__))
 sys.path.insert(0, dirname(dirname(__file__)))
-from pipelines import *
 
 
 @click.group()
@@ -180,7 +180,7 @@ def preset_collect(set_name, unify_kwargs, singlereads):
         require_tasks["fastqc_after"] = multiqc(status='after',
                                                 **unify_kwargs
                                                 )
-    if 'wgs'  in set_names:
+    if 'wgs' in set_names:
         # require_tasks["fastqc_quast"] = multiqc(status='quast',
         #                                         other_info=other_info,
         #                                         **unify_kwargs
@@ -189,11 +189,25 @@ def preset_collect(set_name, unify_kwargs, singlereads):
                                                                        **unify_kwargs)
         require_tasks["seqtk"] = seqtk_summary(SE_data=singlereads,
                                                **unify_kwargs)
-        require_tasks["pre_roary"] = pre_roary(SE_data=singlereads,
-                                               **unify_kwargs)
-        # todo: add checkM module after the new version of python3(12.1)
+        kwargs = dict(odir=unify_kwargs['odir'],
+                      dry_run=unify_kwargs['dry_run'],
+                      log_path=unify_kwargs['log_path'],
+                      thread=unify_kwargs['thread'])
+        require_tasks["prokka"] = [prokka(R1=_R1,
+                                          R2=_R2,
+                                          sample_name=sn,
+                                          **kwargs)
+                                   for sn, _R1, _R2 in unify_kwargs['PE_data']]
+        require_tasks["prokka"] += [prokka(R1=_R1,
+                                           R2='',
+                                           sample_name=sn,
+                                           **kwargs)
+                                    for sn, _R1 in singlereads]
+        require_tasks["annotated_species"] = species_annotated_summary(PE_data=unify_kwargs['PE_data'],
+                                                                       SE_data=singlereads,
+                                                                       **kwargs)
+        # todo: add checkM module after the new version of python3 (12.1)
 
-        # require_tasks['checkM'] =
     if "plasmid" in set_names:
         require_tasks["detect_plasmid"] = detect_plasmid(**unify_kwargs)
 
