@@ -30,7 +30,7 @@ class GenerateSam_pair(base_luigi_task):
         cmdline = "bwa mem -M -t {bwa_thread} -o {ofile} -R '@RG\\tID:{SN}\\tSM:{SN}\\tPL:illumina\\tLB:lib1\\tPU:L001' {REF} {i1} {i2} ".format(
             bwa_thread=config.bwa_thread,
             SN=sample_name,
-            REF=config.REF_file_path,
+            REF=self.infodict.get('REF',''),
             i1=input_file1,
             i2=input_file2,
             ofile=self.output().path)
@@ -141,7 +141,6 @@ class MarkDuplicate(base_luigi_task):
 #                 bam2info(bam_path=_i.path,
 #                          output_cov=_o.path,
 #                          bed_file=config.bed_file_path,
-#                          REF_file=config.REF_file_path
 #                          )
 #                 summarize_covinfo(_o.path,
 #                                   output_f=_o.path.replace('cov.info',
