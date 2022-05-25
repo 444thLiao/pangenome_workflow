@@ -9,15 +9,15 @@ class GenerateSam_pair(base_luigi_task):
         input1 = self.infodict.get("R1", "")
         input2 = self.infodict.get("R2", "")
         sample_name = self.infodict.get("SampleID", '')
-        return fastp(PE1=input1,
-                     PE2=input2,
+        return fastp(R1=input1,
+                     R2=input2,
+                     odir=self.infodict.get("odir", ""),
                      sample_name=sample_name)
     def output(self):
         odir = self.infodict.get("odir", '')
         sample_name = self.infodict.get("SampleID", '')
-        return luigi.LocalTarget(config.output_fmt.format(
-            path=odir,
-            SN=sample_name) + '.sam')
+        return luigi.LocalTarget(config.output_fmt.format(path=odir,
+                                                          SN=sample_name) + '.sam')
         
     def run(self):
         valid_path(self.output().path, check_ofile=1)
@@ -106,14 +106,11 @@ class MarkDuplicate(base_luigi_task):
     def run(self):
         valid_path(self.output().path,
                    check_ofile=1)
-        if config.PCR_ON:
-            cmdline = "touch %s" % self.output().path
-        else:
-            input=self.input().path
-            output=self.output().path
-            odir=os.path.dirname(self.output().path)
-            SN = self.infodict.get("SampleID", '')
-            cmdline = f"gatk MarkDuplicates --java-options '{config.java_option}' --INPUT {input} --OUTPUT {output} --METRICS_FILE {odir}/{SN}_dedup_metrics.txt --CREATE_INDEX true --REMOVE_DUPLICATES true -AS true"
+        input=self.input().path
+        output=self.output().path
+        odir=os.path.dirname(self.output().path)
+        SN = self.infodict.get("SampleID", '')
+        cmdline = f"gatk MarkDuplicates --java-options '{config.java_option}' --INPUT {input} --OUTPUT {output} --METRICS_FILE {odir}/{SN}_dedup_metrics.txt --CREATE_INDEX true --REMOVE_DUPLICATES true -AS true"
         run_cmd(cmdline, dry_run=self.dry_run, log_file=self.get_log_path())
         if self.dry_run:
             run_cmd("touch %s" % self.output().path, dry_run=False)

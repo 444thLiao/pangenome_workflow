@@ -8,8 +8,11 @@ class HaplotypeCaller(base_luigi_task):
         return MarkDuplicate(infodict=self.infodict, dry_run=self.dry_run)
     
     def output(self):
-        return luigi.LocalTarget(self.input().path.replace('.bam',
-                                                           '.raw_variants.vcf'))
+        if self.round is None:
+            ofile = self.input().path.replace('.dedup.bam',f'.raw_variants.vcf')
+        else:
+            ofile = self.input().path.replace('.dedup.bam',f'.raw_variants.rnd{self.round}.vcf')
+        return luigi.LocalTarget(ofile)
         
     def run(self):
         valid_path(self.output().path, check_ofile=1)
@@ -17,7 +20,6 @@ class HaplotypeCaller(base_luigi_task):
         ref=self.infodict.get('REF','')
         input=self.input().path
         output=self.output().path
-        extra_str=extra_str
         gatk4=config.gatk_pro
         
         cmdline = f"{gatk4} HaplotypeCaller --java-options '-Xmx4g' --native-pair-hmm-threads 10 --reference {ref} --input {input} --sample-ploidy 1 -stand-call-conf 10 -A Coverage -A DepthPerAlleleBySample -A FisherStrand -A BaseQuality -A QualByDepth -A RMSMappingQuality -A MappingQualityRankSumTest -A ReadPosRankSumTest -A ChromosomeCounts --all-site-pls true --output {output}"
@@ -25,19 +27,21 @@ class HaplotypeCaller(base_luigi_task):
 
 #########9
 class SelectVariants(base_luigi_task):
+    object_type = luigi.Parameter()
+    
     def requires(self):
         return HaplotypeCaller(infodict=self.infodict,
                                dry_run=self.dry_run)
 
     def output(self):
         if self.object_type == "snp":
-            ofile_name = '.raw_snps.vcf'
+            ofile_name = '.raw_snps'
         elif self.object_type == "indel":
-            ofile_name = '.raw_indels.vcf'
+            ofile_name = '.raw_indels'
         else:
             raise Exception
 
-        return luigi.LocalTarget(self.input().path.replace('.raw_variants.vcf',
+        return luigi.LocalTarget(self.input().path.replace('.raw_variants',
                                                            ofile_name))
     def run(self):
         valid_path(self.output().path, check_ofile=1)
@@ -56,9 +60,10 @@ class SelectVariants(base_luigi_task):
         
         run_cmd(cmdline, dry_run=self.dry_run, log_file=self.get_log_path())
 
-
 #########10
 class VariantFiltration(base_luigi_task):
+    object_type = luigi.Parameter()
+    
     def requires(self):
         return SelectVariants(infodict=self.infodict,
                               dry_run=self.dry_run,
@@ -66,14 +71,6 @@ class VariantFiltration(base_luigi_task):
     def output(self):
         return luigi.LocalTarget(self.input().path.replace('.raw_',
                                                            '.filter_'))
-    def output(self):
-        odir = self.infodict.get("odir", '')
-        project_name = self.infodict.get("project_name", '')
-        sample_name = self.infodict.get("SampleID", '')
-        return luigi.LocalTarget(config.output_fmt.format(
-            path=odir,
-            PN=project_name,
-            SN=sample_name) + '.sam')
     def run(self):
         valid_path(self.output().path, check_ofile=1)
         SNP_QUAL=100.0
@@ -112,8 +109,8 @@ class CombineVariants(base_luigi_task):
         return required_task
     
     def output(self):
-        return luigi.LocalTarget(self.input()["snp"].path.replace('.filter_snps.vcf',
-                                                                    '.merged.vcf'))
+        ofile = self.input()["snp"].path.replace('.filter_snps','.merged')
+        return luigi.LocalTarget(ofile)
     def run(self):
         valid_path(self.output().path, check_ofile=1)
         
@@ -121,7 +118,7 @@ class CombineVariants(base_luigi_task):
         input_snp=self.input()["snp"].path
         output_f=self.output().path
         
-        cmdline = f"""{config.gatk_pro} MergeVcfs --java-options "-Xmx4g" -R {self.infodict.get('REF','')} --INPUT {input_indel} --INPUT {input_snp} --OUTPUT {output_f}"""
+        cmdline = f"""{config.gatk_pro} MergeVcfs --java-options "{config.java_option}" -R {self.infodict.get('REF','')} --INPUT {input_indel} --INPUT {input_snp} --OUTPUT {output_f}"""
         
         run_cmd(cmdline, dry_run=self.dry_run, log_file=self.get_log_path())
 

@@ -116,3 +116,4 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+pipelines/soft_db_path.py

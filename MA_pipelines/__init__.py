@@ -9,7 +9,8 @@ import luigi
 class base_luigi_task(luigi.Task):
     infodict = luigi.DictParameter(default=dict())
     dry_run = luigi.BoolParameter(default=False)
-
+    round = luigi.Parameter(default=None)
+    
     def get_log_path(self):
         base_log_path = self.infodict.get("log_path",None)
         if base_log_path is not None:

@@ -10,7 +10,7 @@ import pandas as pd
 import pysam
 from tqdm import tqdm
 
-from parse_file_name import fileparser
+from toolkit.parse_file_name import fileparser
 import multiprocessing as mp
 
 """
