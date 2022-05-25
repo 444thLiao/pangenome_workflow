@@ -1,13 +1,11 @@
-from . import *
 import sys
 import time
 from os.path import *
-import luigi
 import click
 
 __file__ = abspath(realpath(__file__))
 sys.path.insert(0, dirname(dirname(__file__)))
-
+from pipelines import *
 
 @click.group()
 def cli():
@@ -189,6 +187,8 @@ def preset_collect(set_name, unify_kwargs, singlereads):
                                                                        **unify_kwargs)
         require_tasks["seqtk"] = seqtk_summary(SE_data=singlereads,
                                                **unify_kwargs)
+        # the unify_kwargs contain the PE_data
+        
         kwargs = dict(odir=unify_kwargs['odir'],
                       dry_run=unify_kwargs['dry_run'],
                       log_path=unify_kwargs['log_path'],
@@ -259,8 +259,17 @@ class workflow(luigi.Task):
     def run(self):
         # post pipelines
         # post_analysis(self)
-        pass
-
+        seqtk_ofile = os.path.join(str(self.odir),
+                               constant.summary_dir,
+                               "seqtk_assembly_accessment.csv")
+        seqtk_df = pd.read_csv(seqtk_ofile,sep='\t',index_col=0)
+        _info = shovil_summary_main(os.path.join(str(self.odir),
+                                         'assembly_o',
+                                         'regular'))
+        df = pd.DataFrame.from_dict(_info).T
+        df.columns = ['Depth','Mean coverage']
+        df = pd.concat([seqtk_df,df],axis=1)
+        df.to_csv(seqtk_ofile,sep='\t',index=1)
 
 if __name__ == '__main__':
     cli()

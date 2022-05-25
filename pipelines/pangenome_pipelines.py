@@ -6,7 +6,6 @@ import luigi
 from pipelines import constant_str as constant
 from pipelines.tasks import *
 
-
 class base_luigi_task(luigi.Task):
     odir = luigi.Parameter()
     dry_run = luigi.BoolParameter(default=False)
@@ -36,7 +35,7 @@ class fastqc(base_luigi_task):
         kwargs = self.get_kwargs()
         if self.status == 'before':
             "before trimmomatic/other QC"
-            "it doesn't need to require to any tasks"
+            "it doesn't need any tasks"
             return
         elif self.status == 'after':
             return fastp(R1=self.R1,
@@ -307,16 +306,16 @@ class shovill(base_luigi_task):
 
     def output(self):
         if self.status == 'plasmid':
-            dirname = "plasmidsSpades"
+            odirname = "plasmidsSpades"
             ofile = "contigs.fasta"
         elif self.status == 'regular':
-            dirname = "regular"
+            odirname = "regular"
             ofile = "contigs.fa"
         else:
             raise Exception
         odir = os.path.join(str(self.odir),
                             "assembly_o",
-                            dirname,
+                            odirname,
                             str(self.sample_name))
         return luigi.LocalTarget(os.path.join(odir,
                                               ofile))
@@ -721,8 +720,6 @@ class abricate_summary(base_luigi_task):
     pass
 
 # mlst typing
-
-
 class mlst_task(prokka):
     def output(self):
         odir = os.path.join(str(self.odir),
