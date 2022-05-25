@@ -4,6 +4,7 @@ import numpy as np
 from BCBio import GFF
 
 from toolkit.get_version import *
+from toolkit.get_coverage import *
 from toolkit.process_region_annotated import *
 from toolkit.utils import valid_path, write_pandas_df
 from .constant_str import *
