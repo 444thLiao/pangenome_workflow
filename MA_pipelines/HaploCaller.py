@@ -14,7 +14,7 @@ class HaplotypeCaller(base_luigi_task):
     def run(self):
         valid_path(self.output().path, check_ofile=1)
         
-        ref=config.REF_file_path
+        ref=self.infodict.get('REF','')
         input=self.input().path
         output=self.output().path
         extra_str=extra_str
@@ -48,7 +48,7 @@ class SelectVariants(base_luigi_task):
         else:
             raise Exception
         gatk4=config.gatk_pro
-        REF=config.REF_file_path
+        REF=self.infodict.get('REF','')
         input_f=self.input().path
         output_f=self.output().path
         selecttype=selecttype
@@ -92,7 +92,7 @@ class VariantFiltration(base_luigi_task):
             raise Exception
         
         gatk4=config.gatk_pro
-        REF=config.REF_file_path
+        REF=self.infodict.get('REF','')
         input_f=self.input().path
         output_f=self.output().path
         object_type=self.object_type
@@ -121,7 +121,7 @@ class CombineVariants(base_luigi_task):
         input_snp=self.input()["snp"].path
         output_f=self.output().path
         
-        cmdline = f"""{config.gatk_pro} MergeVcfs --java-options "-Xmx4g" -R {config.REF_file_path} --INPUT {input_indel} --INPUT {input_snp} --OUTPUT {output_f}"""
+        cmdline = f"""{config.gatk_pro} MergeVcfs --java-options "-Xmx4g" -R {self.infodict.get('REF','')} --INPUT {input_indel} --INPUT {input_snp} --OUTPUT {output_f}"""
         
         run_cmd(cmdline, dry_run=self.dry_run, log_file=self.get_log_path())
 

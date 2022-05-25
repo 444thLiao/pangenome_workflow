@@ -1,3 +1,4 @@
+import MA_pipelines
 import luigi,click
 from os.path import *
 
@@ -22,7 +23,7 @@ def run(cmd):
 @click.option("-o", "--odir", help="output directory for testing ...")
 def test(odir):
     run_cmd(
-        f"python3 {project_root_path}/luigi_pipelines/main.py workflow --tab {project_root_path}/test_set/germline/data_input.tsv --odir {odir} --analysis-type germline --workers 5 --log-path {odir}/cmd_log.txt",
+        f"python3 {project_root_path}/luigi_pipelines/main.py workflow --tab {project_root_path}/test_set/germline/data_input.tsv --odir {odir}  --workers 5 --log-path {odir}/cmd_log.txt",
         dry_run=False)
 
 
@@ -42,6 +43,7 @@ class workflow(luigi.Task):
             info_dict['R1'] = info['R1']
             info_dict['R2'] = info['R2']
             info_dict['SampleID'] = SN
+            info_dict['REF'] = info['ref']
             tasks[f"{SN}_HC"].append(CombineVariants(infodict=info_dict,
                                                      dry_run=self.dry_run))
 
