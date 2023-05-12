@@ -259,6 +259,8 @@ class workflow(luigi.Task):
     def run(self):
         # post pipelines
         # post_analysis(self)
+        if 'qc' in self.preset:
+            return
         seqtk_ofile = os.path.join(str(self.odir),
                                constant.summary_dir,
                                "seqtk_assembly_accessment.csv")

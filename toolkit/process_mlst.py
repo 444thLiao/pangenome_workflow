@@ -5,7 +5,6 @@ import pandas as pd
 from tqdm import tqdm
 from pandas.errors import EmptyDataError
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from pipelines.soft_db_path import mlst_db
 
 
 def parse_mlst(infiles, sample_name=None):

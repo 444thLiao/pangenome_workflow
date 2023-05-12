@@ -77,7 +77,7 @@ def main(indir, odir, dry_run=False):
                     odir=os.path.join(odir, "assembly_o", "plasmids", sn),
                     thread=7,
                     ram=15,
-                    depth=10,
+                    depth=100,
                     dry_run=dry_run,
                     log_file=log_file_stream
                     )

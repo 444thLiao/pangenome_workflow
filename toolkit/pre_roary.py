@@ -12,7 +12,6 @@ from sklearn.cluster import AgglomerativeClustering
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from pipelines import run_cmd, valid_path
-from pipelines.soft_db_path import mash_path
 
 
 @click.command()

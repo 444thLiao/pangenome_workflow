@@ -164,7 +164,7 @@ def run_shovill(R1, R2, odir,
                 thread=0,
                 extra_option='',
                 ram=100,  # unit G
-                depth=100,
+                depth=5000,
                 exe_path=shovill_path,
                 dry_run=False,
                 log_file=None):
