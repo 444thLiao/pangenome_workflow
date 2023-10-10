@@ -2,7 +2,7 @@ import os
 from collections import defaultdict
 
 import pandas as pd
-
+from tqdm import tqdm
 # 1. Percentage of fragments covered by the clade rooted at this taxon
 # 2. Number of fragments covered by the clade rooted at this taxon
 # 3. Number of fragments assigned directly to this taxon
@@ -26,6 +26,8 @@ kraken2_header = ["percentage_frag",
 
 def parse_kraken2(infile):
     # todo: check some abnormal situations.
+    if os.path.getsize(infile)==0:
+        return
     df = pd.read_csv(infile, sep='\t', header=None)
     df.columns = kraken2_header
     df.loc[:, "scientific name"] = [_.strip() for _ in df.loc[:, "scientific name"]]
@@ -43,7 +45,7 @@ def merge_kraken2(infiles):
                                       "assembly_kraken2 (%)",
                                       ])
     s2paths = defaultdict(list)
-    for _ in infiles:
+    for _ in tqdm(infiles):
         sample = str(os.path.basename(_).split('_assembly')[0])
         sample = sample.split("_reads")[0]
         # todo: be careful to the format(if changed?)
@@ -67,3 +69,5 @@ def merge_kraken2(infiles):
                                                   index=[s]))
 
     return merged_df
+
+## merg
