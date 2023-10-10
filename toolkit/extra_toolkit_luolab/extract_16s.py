@@ -7,8 +7,8 @@ from collections import defaultdict
 
 def extract_16s(indir):
     name2_rrna = defaultdict(list)
-    for f in tqdm(glob(join(indir, '*', '*.gbk'))):
-        name = basename(dirname(f))
+    for f in tqdm(glob(join(indir, '*','09_prokka', '*.gbk'))):
+        name = basename(f).replace('.gbk','')
         if not exists(f):
             print('no sequence in ', name)
             continue

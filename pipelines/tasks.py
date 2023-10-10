@@ -431,8 +431,12 @@ def run_seqtk_contig(infile, outfile, isolate,
     contig_lengths_prime = [[i] * i for i in contig_lengths]
     metrics = {}
     pfx = 'metricsContigs_'
-    metrics[pfx + 'N50'] = int(np.median([i for j in contig_lengths_prime
-                                          for i in j]))
+    median_length = np.median([i for j in contig_lengths_prime
+                                          for i in j])
+    if str(median_length) == 'nan':
+        metrics[pfx + 'N50'] = 'NA'
+    else:
+        metrics[pfx + 'N50'] = int(median_length)
     # confirmed...
     bps = sum(contig_lengths)
     nns = sum(df1['#4'].tolist())
