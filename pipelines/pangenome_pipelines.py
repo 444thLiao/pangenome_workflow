@@ -597,12 +597,6 @@ class seqtk_tasks(prokka):
                       dry_run=self.dry_run,
                       log_file=self.log_path)
 
-        run_seqtk_contig(infile=self.input().path,
-                         outfile=os.path.join(odir,
-                                              "%s_assembly.summary" % self.sample_name),
-                         **kwargs
-                         )
-
         if self.R2 is not None:
             # input is PE fa, need to access the quality before and after assembly
             run_seqtk_reads(infile=self.R1,
@@ -611,6 +605,11 @@ class seqtk_tasks(prokka):
                             **kwargs
                             )
 
+        run_seqtk_contig(infile=self.input().path,
+                         outfile=os.path.join(odir,
+                                              "%s_assembly.summary" % self.sample_name),
+                         **kwargs
+                         )
 
 class seqtk_summary(base_luigi_task):
     PE_data = luigi.TupleParameter()
