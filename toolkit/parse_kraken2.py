@@ -69,5 +69,3 @@ def merge_kraken2(infiles):
                                                   index=[s]))
 
     return merged_df
-
-## merg

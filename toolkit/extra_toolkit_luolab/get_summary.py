@@ -9,9 +9,9 @@ from os.path import *
 import sys
 sys.path.insert(0,__file__.rsplit('/',3)[0])
 from toolkit.parse_kraken2 import merge_kraken2
-# python ~/software/evol_tk/toolkit/extra_toolkit_luolab/get_summary.py ./input.tab ./
+# python ~/software/pangenome_workflow/toolkit/extra_toolkit_luolab/get_summary.py ./input.tab ./
 if __name__=='__main__':
-    infile, odir = sys.args[1:]
+    infile, odir = sys.argv[1:]
 # odir = './'
 # infile = './input.tab'
     indf = pd.read_csv(infile,sep='\t',index_col=0)
