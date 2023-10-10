@@ -349,6 +349,40 @@ class shovill(base_luigi_task):
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
 
+class seqtk_task_reads(shovill):
+    def output(self):
+        odir = os.path.join(str(self.odir), "seqtk_result")
+        valid_path(odir, check_odir=1)
+        ofiles = []
+        if self.R2 is not None:
+            ofiles.append(os.path.join(odir,
+                                       "%s_reads.summary" % self.sample_name))
+
+        return [luigi.LocalTarget(_) for _ in ofiles]
+
+    def run(self):
+        odir = os.path.join(str(self.odir), "seqtk_result")
+        valid_path(odir, check_odir=1)
+        if self.dry_run:
+            for _ in self.output():
+                run_cmd("touch %s" % _,
+                        dry_run=False)
+            return
+
+        kwargs = dict(isolate=self.sample_name,
+                      dry_run=self.dry_run,
+                      log_file=self.log_path)
+
+        if self.R2 is not None:
+            # input is PE fa, need to access the quality before and after assembly
+            run_seqtk_reads(infile=self.R1,
+                            outfile=os.path.join(odir,
+                                                 "%s_reads.summary" % self.sample_name),
+                            **kwargs
+                            )
+
+
+
 class prokka(base_luigi_task):
     """
     representation of task which process assembly contigs or single raw reads.
@@ -570,7 +604,7 @@ class fasttree(base_luigi_task):
 
 
 # quality accessment
-class seqtk_tasks(prokka):
+class seqtk_task_assembly(prokka):
     def output(self):
         odir = os.path.join(str(self.odir), "seqtk_result")
         valid_path(odir, check_odir=1)
@@ -618,15 +652,24 @@ class seqtk_summary(base_luigi_task):
     def requires(self):
         kwargs = self.get_kwargs()
         required_tasks = []
-        required_tasks += [seqtk_tasks(R1=_R1,
+        required_tasks += [seqtk_task_assembly(R1=_R1,
                                        R2=_R2,
                                        sample_name=sn,
                                        **kwargs)
                            for sn, _R1, _R2 in self.PE_data]
-        required_tasks += [seqtk_tasks(R1=_R1,
+        required_tasks += [seqtk_task_assembly(R1=_R1,
                                        sample_name=sn,
                                        **kwargs)
                            for sn, _R1 in self.SE_data]
+        required_tasks += [seqtk_task_reads(R1=_R1,
+                                       R2=_R2,
+                                       sample_name=sn,
+                                       **kwargs)
+                           for sn, _R1, _R2 in self.PE_data]
+        required_tasks += [seqtk_task_reads(R1=_R1,
+                                       sample_name=sn,
+                                       **kwargs)
+                           for sn, _R1 in self.SE_data]        
         return required_tasks
 
     def output(self):
