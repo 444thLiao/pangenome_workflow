@@ -18,7 +18,7 @@ fastp_cmd = """{exe_path}  -i {R1} -I {R2} -o {clean_r1} -O {clean_r2} -j {json}
 
 shovill_cmd = """{exe_path} --outdir {odir} --ram {ram} --R1 {R1} --R2 {R2} --depth {depth} --cpus {thread} --minlen 500 --force --tmpdir `realpath {odir}`"""
 # force otherwise it will exit because of pre-created the directory.
-prokka_cmd = """{exe_path} {infile} --outdir {odir} --prefix {sn} --locustag {sn} --cpus {thread} --force --quiet"""
+prokka_cmd = """{exe_path} {infile} --outdir {odir} --prefix {sn} --locustag {sn} --cpus {thread} --force --quiet --addgenes"""
 roary_cmd = "rm -r {odir}* ;{exe_path} -r -v -e -g 100000 --mafft -p {thread} -f {odir} {gff_pattern} "
 
 quast_cmd = """{exe_path} {contig} -1 {R1} -2 {R2} --threads {threads} --no-check -o {odir} {extra_str}"""
