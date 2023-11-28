@@ -349,40 +349,6 @@ class shovill(base_luigi_task):
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
 
-class seqtk_task_reads(shovill):
-    def output(self):
-        odir = os.path.join(str(self.odir), "seqtk_result")
-        valid_path(odir, check_odir=1)
-        ofiles = []
-        if self.R2 is not None:
-            ofiles.append(os.path.join(odir,
-                                       "%s_reads.summary" % self.sample_name))
-
-        return [luigi.LocalTarget(_) for _ in ofiles]
-
-    def run(self):
-        odir = os.path.join(str(self.odir), "seqtk_result")
-        valid_path(odir, check_odir=1)
-        if self.dry_run:
-            for _ in self.output():
-                run_cmd("touch %s" % _,
-                        dry_run=False)
-            return
-
-        kwargs = dict(isolate=self.sample_name,
-                      dry_run=self.dry_run,
-                      log_file=self.log_path)
-
-        if self.R2 is not None:
-            # input is PE fa, need to access the quality before and after assembly
-            run_seqtk_reads(infile=self.R1,
-                            outfile=os.path.join(odir,
-                                                 "%s_reads.summary" % self.sample_name),
-                            **kwargs
-                            )
-
-
-
 class prokka(base_luigi_task):
     """
     representation of task which process assembly contigs or single raw reads.
@@ -425,7 +391,38 @@ class prokka(base_luigi_task):
             for _o in [self.output()]:
                 run_cmd("touch %s" % _o.path, dry_run=False)
 
+class seqtk_task_reads(prokka):
+    def output(self):
+        odir = os.path.join(str(self.odir), "seqtk_result")
+        valid_path(odir, check_odir=1)
+        ofiles = []
+        if self.R2 is not None:
+            ofiles.append(os.path.join(odir,
+                                       "%s_reads.summary" % self.sample_name))
 
+        return [luigi.LocalTarget(_) for _ in ofiles]
+
+    def run(self):
+        odir = os.path.join(str(self.odir), "seqtk_result")
+        valid_path(odir, check_odir=1)
+        if self.dry_run:
+            for _ in self.output():
+                run_cmd("touch %s" % _,
+                        dry_run=False)
+            return
+
+        kwargs = dict(isolate=self.sample_name,
+                      dry_run=self.dry_run,
+                      log_file=self.log_path)
+
+        if self.R2 is not None:
+            # input is PE fa, need to access the quality before and after assembly
+            run_seqtk_reads(infile=self.R1,
+                            outfile=os.path.join(odir,
+                                                 "%s_reads.summary" % self.sample_name),
+                            **kwargs
+                            )
+            
 # pangenome analysis part
 class pre_roary(base_luigi_task):
     PE_data = luigi.TupleParameter()
